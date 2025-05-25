@@ -1,10 +1,13 @@
 ✅ 1. Mục tiêu kiến trúc
+
 .NET (Microservice): Xử lý các chức năng chuyên biệt, cần khả năng scale tốt, liên quan đến bảo mật, xác thực, phân quyền.
 Node.js + PostgreSQL (Monolith): Xử lý các chức năng nghiệp vụ tổng hợp, ít yêu cầu scale độc lập từng phần, tập trung trải nghiệm người dùng như chat, therapy, lịch khám, v.v.
 ---------------------------------------------------
 
 ✅ 2. Tách Database theo chức năng
+
 ---------🔒 .NET Microservice – Quản lý người dùng & xác thực:-------------
+
 Database riêng hoặc schema riêng, gồm:
 - Users
 - Roles
@@ -14,6 +17,7 @@ Database riêng hoặc schema riêng, gồm:
 Lý do: Đây là các bảng nhạy cảm về bảo mật (xác thực, phân quyền), nên tách riêng thành Authentication Service để scale độc lập, audit log rõ ràng, gắn với Firebase hoặc các hệ thống xác thực ngoài.
 
 ---------💬 Node.js Monolith – Quản lý nội dung & nghiệp vụ:-------------
+
 PostgreSQL, chứa phần còn lại:
 📦 Bảng nghiệp vụ chính:
 - Messages (chat giữa user – bác sĩ)
@@ -24,6 +28,7 @@ Lý do: Các bảng này ít thay đổi cấu trúc và gắn chặt với lu�
 ---------------------------------------------------
 
 ✅ 3. Phân tích mối quan hệ giữa hai kiến trúc
+
 Kết nối giữa 2 phần:
 Users.Id từ microservice được dùng làm khóa ngoại (foreign key) ở phần monolith như:
 Messages.SenderUserId / ReceiverUserId
@@ -32,6 +37,7 @@ Có thể dùng event-driven hoặc REST để lấy thông tin người dùng k
 ---------------------------------------------------
 
 ✅ 4. Lưu ý
+
 Đảm bảo Users.Id nhất quán giữa cả hai hệ thống.
 Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng.
 Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông tin người dùng.
