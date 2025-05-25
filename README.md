@@ -1,7 +1,7 @@
 ✅ 1. Mục tiêu kiến trúc
 
-.NET (Microservice): Xử lý các chức năng chuyên biệt, cần khả năng scale tốt, liên quan đến bảo mật, xác thực, phân quyền.
-Node.js + PostgreSQL (Monolith): Xử lý các chức năng nghiệp vụ tổng hợp, ít yêu cầu scale độc lập từng phần, tập trung trải nghiệm người dùng như chat, therapy, lịch khám, v.v.
+* .NET (Microservice): Xử lý các chức năng chuyên biệt, cần khả năng scale tốt, liên quan đến bảo mật, xác thực, phân quyền. 
+* Node.js + PostgreSQL (Monolith): Xử lý các chức năng nghiệp vụ tổng hợp, ít yêu cầu scale độc lập từng phần, tập trung trải nghiệm người dùng như chat, therapy, lịch khám, v.v.
 ---------------------------------------------------
 
 ✅ 2. Tách Database theo chức năng
@@ -28,21 +28,20 @@ Lý do: Các bảng này ít thay đổi cấu trúc và gắn chặt với lu�
 ---------------------------------------------------
 
 ✅ 3. Phân tích mối quan hệ giữa hai kiến trúc
-
-Kết nối giữa 2 phần:
-Users.Id từ microservice được dùng làm khóa ngoại (foreign key) ở phần monolith như:
-Messages.SenderUserId / ReceiverUserId
-Schedules.DoctorId, Bookings.UserId, etc.
-Có thể dùng event-driven hoặc REST để lấy thông tin người dùng khi cần (từ microservice qua API gateway hoặc Message Bus như RabbitMQ).
+Kết nối giữa 2 phần: 
+-Users.Id từ microservice được dùng làm khóa ngoại (foreign key) ở phần monolith như:
+   + Messages.SenderUserId / ReceiverUserId 
+   + Schedules.DoctorId, Bookings.UserId, etc. 
+-Có thể dùng event-driven hoặc REST để lấy thông tin người dùng khi cần (từ microservice qua API gateway hoặc Message Bus như RabbitMQ).
 ---------------------------------------------------
 
 ✅ 4. Lưu ý
-
 Đảm bảo Users.Id nhất quán giữa cả hai hệ thống.
 Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng.
 Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông tin người dùng.
 ---------------------------------------------------
    ✅  SƠ ĐỒ KIẾN TRÚC HỆ THỐNG ✅
+   
                                   +------------------+
                                   |    Frontend UI   |
                                   | (Web / Mobile App)|
@@ -72,6 +71,7 @@ Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông
 +---------------------------+                             +---------------------------+
 |      PostgreSQL DB        |                             |      PostgreSQL DB        |
 +---------------------------+                             +---------------------------+
+
 
 | Thành phần                   | Mô tả                                                                                                                             |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
