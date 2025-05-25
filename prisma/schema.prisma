@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -12,4 +6,93 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Categories {
+  Id             String    @id(map: "PK_Categories") @db.Uuid
+  Name           String
+  Description    String
+  CreatedAt      DateTime? @db.Timestamptz(6)
+  CreatedBy      String?
+  LastModified   DateTime? @db.Timestamptz(6)
+  LastModifiedBy String?
+}
+
+model QuestionOptionTestResult {
+  SelectedOptionsId String          @db.Uuid
+  TestResultsId     String          @db.Uuid
+  QuestionOptions   QuestionOptions @relation(fields: [SelectedOptionsId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_QuestionOptionTestResult_QuestionOptions_SelectedOptionsId")
+  TestResults       TestResults     @relation(fields: [TestResultsId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_QuestionOptionTestResult_TestResults_TestResultsId")
+
+  @@id([SelectedOptionsId, TestResultsId], map: "PK_QuestionOptionTestResult")
+  @@index([TestResultsId], map: "IX_QuestionOptionTestResult_TestResultsId")
+}
+
+model QuestionOptions {
+  Id                       String                     @id(map: "PK_QuestionOptions") @db.Uuid
+  QuestionId               String                     @db.Uuid
+  Content                  String
+  OptionValue              Int
+  TestQuestionId           String?                    @db.Uuid
+  CreatedAt                DateTime?                  @db.Timestamptz(6)
+  CreatedBy                String?
+  LastModified             DateTime?                  @db.Timestamptz(6)
+  LastModifiedBy           String?
+  QuestionOptionTestResult QuestionOptionTestResult[]
+  TestQuestions            TestQuestions?             @relation(fields: [TestQuestionId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_QuestionOptions_TestQuestions_TestQuestionId")
+
+  @@index([TestQuestionId], map: "IX_QuestionOptions_TestQuestionId")
+}
+
+model TestQuestions {
+  Id              String            @id(map: "PK_TestQuestions") @db.Uuid
+  Order           Int
+  Content         String
+  TestId          String            @db.Uuid
+  CreatedAt       DateTime?         @db.Timestamptz(6)
+  CreatedBy       String?
+  LastModified    DateTime?         @db.Timestamptz(6)
+  LastModifiedBy  String?
+  QuestionOptions QuestionOptions[]
+  Tests           Tests             @relation(fields: [TestId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TestQuestions_Tests_TestId")
+
+  @@index([TestId], map: "IX_TestQuestions_TestId")
+}
+
+model TestResults {
+  Id                       String                     @id(map: "PK_TestResults") @db.Uuid
+  PatientId                String                     @db.Uuid
+  TestId                   String                     @db.Uuid
+  TakenAt                  DateTime                   @db.Timestamptz(6)
+  DepressionScore          Int
+  AnxietyScore             Int
+  StressScore              Int
+  SeverityLevel            Int
+  Recommendation           String
+  CreatedAt                DateTime?                  @db.Timestamptz(6)
+  CreatedBy                String?
+  LastModified             DateTime?                  @db.Timestamptz(6)
+  LastModifiedBy           String?
+  QuestionOptionTestResult QuestionOptionTestResult[]
+  Tests                    Tests                      @relation(fields: [TestId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TestResults_Tests_TestId")
+
+  @@index([TestId], map: "IX_TestResults_TestId")
+}
+
+model Tests {
+  Id             String          @id(map: "PK_Tests") @db.Uuid
+  CategoryId     String          @db.Uuid
+  CreatedAt      DateTime?       @db.Timestamptz(6)
+  CreatedBy      String?
+  LastModified   DateTime?       @db.Timestamptz(6)
+  LastModifiedBy String?
+  TestQuestions  TestQuestions[]
+  TestResults    TestResults[]
+}
+
+model EFMigrationsHistory {
+  MigrationId    String @id(map: "PK___EFMigrationsHistory") @db.VarChar(150)
+  ProductVersion String @db.VarChar(32)
+
+  @@map("__EFMigrationsHistory")
 }
