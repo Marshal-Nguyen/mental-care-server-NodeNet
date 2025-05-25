@@ -28,6 +28,7 @@ Lý do: Các bảng này ít thay đổi cấu trúc và gắn chặt với lu�
 ---------------------------------------------------
 
 ✅ 3. Phân tích mối quan hệ giữa hai kiến trúc
+
 Kết nối giữa 2 phần: 
 -Users.Id từ microservice được dùng làm khóa ngoại (foreign key) ở phần monolith như:
    + Messages.SenderUserId / ReceiverUserId 
@@ -55,22 +56,22 @@ Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông
             +------------------------------+------------------------------+
             |                                                             |
             v                                                             v
-+---------------------------+                             +---------------------------+
-| .NET Microservice (Auth)  |                             |   Node.js Monolith App    |
-|---------------------------|                             |---------------------------|
-| - Users                   |                             | - Messages                |
-| - Roles / UserRoles       |                             | - Conversations           |
-| - Devices (Firebase)      |                             | - Therapies / Activities  |
-| - Refresh Tokens          |                             | - Booking / Schedule      |
-| - Login / Register / JWT  |                             | - DASS-21 / Tests         |
-+---------------------------+                             +---------------------------+
-           |                                                              |
-           | <-------------------------> (API/REST or Message Queue) <--> |
-           |            Đồng bộ Users, Role info, v.v...                  |
-           |                                                              |
-+---------------------------+                             +---------------------------+
-|      PostgreSQL DB        |                             |      PostgreSQL DB        |
-+---------------------------+                             +---------------------------+
+      +---------------------------+                             +---------------------------+
+      | .NET Microservice (Auth)  |                             |   Node.js Monolith App    |
+      |---------------------------|                             |---------------------------|
+      | - Users                   |                             | - Messages                |
+      | - Roles / UserRoles       |                             | - Conversations           |
+      | - Devices (Firebase)      |                             | - Therapies / Activities  |
+      | - Refresh Tokens          |                             | - Booking / Schedule      |
+      | - Login / Register / JWT  |                             | - DASS-21 / Tests         |
+      +---------------------------+                             +---------------------------+
+                 |                                                              |
+                 | <-------------------------> (API/REST or Message Queue) <--> |
+                 |            Đồng bộ Users, Role info, v.v...                  |
+                 |                                                              |
+      +---------------------------+                             +---------------------------+
+      |      PostgreSQL DB        |                             |      PostgreSQL DB        |
+      +---------------------------+                             +---------------------------+
 
 
 | Thành phần                   | Mô tả                                                                                                                             |
