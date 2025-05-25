@@ -37,8 +37,9 @@ Kết nối giữa 2 phần:
 ---------------------------------------------------
 
 ✅ 4. Lưu ý
-Đảm bảo Users.Id nhất quán giữa cả hai hệ thống.
-Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng.
+
+Đảm bảo Users.Id nhất quán giữa cả hai hệ thống. 
+Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng. 
 Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông tin người dùng.
 ---------------------------------------------------
    ✅  SƠ ĐỒ KIẾN TRÚC HỆ THỐNG ✅
@@ -91,11 +92,13 @@ Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông
 ---------------------------------------------------
 
 ✅ 5. Chứng thực và bảo mật giữa 2 service
-Node.js gọi .NET luôn kèm theo Admin API Key hoặc JWT Service Token
-Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
+
+   - Node.js gọi .NET luôn kèm theo Admin API Key hoặc JWT Service Token
+   - Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
 ---------------------------------------------------
 
 ✅ 6. Giao tiếp bằng Queue (tuỳ chọn nâng cao)
+
  Dùng RabbitMQ... có thể làm:
 | Tình huống         | Event                                                                           |
 | ------------------ | ------------------------------------------------------------------------------- |
@@ -134,6 +137,7 @@ Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
 ---------------------------------------------------
 ✅ 8. QUẢN LÍ CÁC PACKED VÀ DEPENDENCE
   1. Core Backend & Framework
+     
 | Package       | Mục đích                                                   |
 | ------------- | ---------------------------------------------------------- |
 | `express`     | Framework chính để xây dựng API                            |
@@ -145,6 +149,7 @@ Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
 | `body-parser` | Phân tích JSON, form, urlencoded (nếu dùng express < 4.16) |
   2. Database – PostgreSQL
   3. Auth / Security
+  
 | Package          | Mục đích               |
 | ---------------- | ---------------------- |
 | `jsonwebtoken`   | Tạo và xác minh JWT    |
@@ -152,6 +157,7 @@ Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
 | `cookie-parser`  | Đọc cookie từ client   |
 | `firebase-admin` | Nếu dùng Firebase Auth |
   4. Middleware / Tiện ích
+  
   | Package             | Mục đích                                      |
 | ------------------- | --------------------------------------------- |
 | `express-validator` | Validate input đầu vào                        |
@@ -160,6 +166,7 @@ Dùng Axios + Retry + Circuit Breaker để đảm bảo call an toàn
 | `axios`             | Gọi API từ server tới dịch vụ khác            |
 | `multer`            | Xử lý upload file (nếu cần)                   |
   5. Dev Tools
+  
 | Package                                  | Mục đích                            |
 | ---------------------------------------- | ----------------------------------- |
 | `nodemon`                                | Tự restart server khi thay đổi code |
