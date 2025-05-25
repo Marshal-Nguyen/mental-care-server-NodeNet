@@ -35,12 +35,11 @@ Kết nối giữa 2 phần:
    + Schedules.DoctorId, Bookings.UserId, etc. 
 -Có thể dùng event-driven hoặc REST để lấy thông tin người dùng khi cần (từ microservice qua API gateway hoặc Message Bus như RabbitMQ).
 ---------------------------------------------------
-
 ✅ 4. Lưu ý
 
-Đảm bảo Users.Id nhất quán giữa cả hai hệ thống. 
-Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng. 
-Xem xét dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông tin người dùng.
+- Đảm bảo UserId nhất quán giữa 2 hệ thống
+- Có thể dùng Redis cache để giảm truy cập liên tục giữa 2 hệ thống khi cần thông tin người dùng
+- Dùng JWT chứa userId & role, giảm phụ thuộc truy xuất thông tin người dùng
 ---------------------------------------------------
    ✅  SƠ ĐỒ KIẾN TRÚC HỆ THỐNG ✅
    
