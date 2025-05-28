@@ -6,7 +6,162 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
 }
+
+
+model DoctorProfileSpecialty {
+  DoctorProfilesId String         @db.Uuid
+  SpecialtiesId    String         @db.Uuid
+  DoctorProfiles   DoctorProfiles @relation(fields: [DoctorProfilesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_DoctorProfileSpecialty_DoctorProfiles_DoctorProfilesId")
+  Specialties      Specialties    @relation(fields: [SpecialtiesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_DoctorProfileSpecialty_Specialties_SpecialtiesId")
+
+  @@id([DoctorProfilesId, SpecialtiesId], map: "PK_DoctorProfileSpecialty")
+  @@index([SpecialtiesId], map: "IX_DoctorProfileSpecialty_SpecialtiesId")
+}
+
+model DoctorProfiles {
+  Id                     String                   @id(map: "PK_DoctorProfiles") @db.Uuid
+  UserId                 String                   @db.Uuid
+  FullName               String
+  Gender                 String                   @db.VarChar(10)
+  Qualifications         String?
+  YearsOfExperience      Int
+  Bio                    String?
+  Rating                 Float                    @db.Real
+  TotalReviews           Int
+  Address                String
+  Email                  String
+  PhoneNumber            String
+  CreatedAt              DateTime?                @db.Timestamptz(6)
+  CreatedBy              String?
+  LastModified           DateTime?                @db.Timestamptz(6)
+  LastModifiedBy         String?
+  DoctorProfileSpecialty DoctorProfileSpecialty[]
+  MedicalRecords         MedicalRecords[]
+}
+
+model MedicalHistories {
+  Id                                   String                                 @id(map: "PK_MedicalHistories") @db.Uuid
+  PatientId                            String                                 @unique(map: "IX_MedicalHistories_PatientId") @db.Uuid
+  Description                          String
+  DiagnosedAt                          DateTime                               @db.Timestamptz(6)
+  CreatedAt                            DateTime?                              @db.Timestamptz(6)
+  CreatedBy                            String?
+  LastModified                         DateTime?                              @db.Timestamptz(6)
+  LastModifiedBy                       String?
+  PatientProfiles                      PatientProfiles                        @relation(fields: [PatientId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalHistories_PatientProfiles_PatientId")
+  MedicalHistoryPhysicalSymptom        MedicalHistoryPhysicalSymptom[]
+  MedicalHistorySpecificMentalDisorder MedicalHistorySpecificMentalDisorder[]
+  MedicalRecords                       MedicalRecords[]
+}
+
+model MedicalHistoryPhysicalSymptom {
+  MedicalHistoriesId String           @db.Uuid
+  PhysicalSymptomsId String           @db.Uuid
+  MedicalHistories   MedicalHistories @relation(fields: [MedicalHistoriesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalHistoryPhysicalSymptom_MedicalHistories_MedicalHisto~")
+  PhysicalSymptoms   PhysicalSymptoms @relation(fields: [PhysicalSymptomsId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalHistoryPhysicalSymptom_PhysicalSymptoms_PhysicalSymp~")
+
+  @@id([MedicalHistoriesId, PhysicalSymptomsId], map: "PK_MedicalHistoryPhysicalSymptom")
+  @@index([PhysicalSymptomsId], map: "IX_MedicalHistoryPhysicalSymptom_PhysicalSymptomsId")
+}
+
+model MedicalHistorySpecificMentalDisorder {
+  MedicalHistoriesId        String                  @db.Uuid
+  SpecificMentalDisordersId String                  @db.Uuid
+  MedicalHistories          MedicalHistories        @relation(fields: [MedicalHistoriesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalHistorySpecificMentalDisorder_MedicalHistories_Medic~")
+  SpecificMentalDisorders   SpecificMentalDisorders @relation(fields: [SpecificMentalDisordersId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalHistorySpecificMentalDisorder_SpecificMentalDisorder~")
+
+  @@id([MedicalHistoriesId, SpecificMentalDisordersId], map: "PK_MedicalHistorySpecificMentalDisorder")
+  @@index([SpecificMentalDisordersId], map: "IX_MedicalHistorySpecificMentalDisorder_SpecificMentalDisorder~")
+}
+
+model MedicalRecordSpecificMentalDisorder {
+  MedicalRecordsId          String                  @db.Uuid
+  SpecificMentalDisordersId String                  @db.Uuid
+  MedicalRecords            MedicalRecords          @relation(fields: [MedicalRecordsId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalRecordSpecificMentalDisorder_MedicalRecords_MedicalR~")
+  SpecificMentalDisorders   SpecificMentalDisorders @relation(fields: [SpecificMentalDisordersId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalRecordSpecificMentalDisorder_SpecificMentalDisorders~")
+
+  @@id([MedicalRecordsId, SpecificMentalDisordersId], map: "PK_MedicalRecordSpecificMentalDisorder")
+  @@index([SpecificMentalDisordersId], map: "IX_MedicalRecordSpecificMentalDisorder_SpecificMentalDisorders~")
+}
+
+model MedicalRecords {
+  Id                                  String                                @id(map: "PK_MedicalRecords") @db.Uuid
+  PatientProfileId                    String                                @db.Uuid
+  DoctorProfileId                     String                                @db.Uuid
+  MedicalHistoryId                    String?                               @db.Uuid
+  Notes                               String
+  Status                              String                                @db.VarChar(20)
+  CreatedAt                           DateTime?                             @db.Timestamptz(6)
+  CreatedBy                           String?
+  LastModified                        DateTime?                             @db.Timestamptz(6)
+  LastModifiedBy                      String?
+  MedicalRecordSpecificMentalDisorder MedicalRecordSpecificMentalDisorder[]
+  DoctorProfiles                      DoctorProfiles                        @relation(fields: [DoctorProfileId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalRecords_DoctorProfiles_DoctorProfileId")
+  MedicalHistories                    MedicalHistories?                     @relation(fields: [MedicalHistoryId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_MedicalRecords_MedicalHistories_MedicalHistoryId")
+  PatientProfiles                     PatientProfiles                       @relation(fields: [PatientProfileId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_MedicalRecords_PatientProfiles_PatientProfileId")
+
+  @@index([DoctorProfileId], map: "IX_MedicalRecords_DoctorProfileId")
+  @@index([MedicalHistoryId], map: "IX_MedicalRecords_MedicalHistoryId")
+  @@index([PatientProfileId], map: "IX_MedicalRecords_PatientProfileId")
+}
+
+model MentalDisorders {
+  Id                      String                    @id(map: "PK_MentalDisorders") @db.Uuid
+  Name                    String
+  Description             String
+  CreatedAt               DateTime?                 @db.Timestamptz(6)
+  CreatedBy               String?
+  LastModified            DateTime?                 @db.Timestamptz(6)
+  LastModifiedBy          String?
+  SpecificMentalDisorders SpecificMentalDisorders[]
+}
+
+model PatientProfiles {
+  Id                String            @id(map: "PK_PatientProfiles") @db.Uuid
+  UserId            String            @db.Uuid
+  FullName          String
+  Gender            String            @db.VarChar(10)
+  Allergies         String?
+  PersonalityTraits String            @db.VarChar(20)
+  MedicalHistoryId  String?           @db.Uuid
+  Address           String
+  Email             String
+  PhoneNumber       String
+  CreatedAt         DateTime?         @db.Timestamptz(6)
+  CreatedBy         String?
+  LastModified      DateTime?         @db.Timestamptz(6)
+  LastModifiedBy    String?
+  MedicalHistories  MedicalHistories?
+  MedicalRecords    MedicalRecords[]
+}
+
+model PhysicalSymptoms {
+  Id                            String                          @id(map: "PK_PhysicalSymptoms") @db.Uuid
+  Name                          String
+  Description                   String
+  MedicalHistoryPhysicalSymptom MedicalHistoryPhysicalSymptom[]
+}
+
+model Specialties {
+  Id                     String                   @id(map: "PK_Specialties") @db.Uuid
+  Name                   String
+  DoctorProfileSpecialty DoctorProfileSpecialty[]
+}
+
+model SpecificMentalDisorders {
+  Id                                   String                                 @id(map: "PK_SpecificMentalDisorders") @db.Uuid
+  MentalDisorderId                     String                                 @db.Uuid
+  Name                                 String
+  Description                          String
+  MedicalHistorySpecificMentalDisorder MedicalHistorySpecificMentalDisorder[]
+  MedicalRecordSpecificMentalDisorder  MedicalRecordSpecificMentalDisorder[]
+  MentalDisorders                      MentalDisorders                        @relation(fields: [MentalDisorderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_SpecificMentalDisorders_MentalDisorders_MentalDisorderId")
+
+  @@index([MentalDisorderId], map: "IX_SpecificMentalDisorders_MentalDisorderId")
+}
+
 
 model Categories {
   Id             String    @id(map: "PK_Categories") @db.Uuid
@@ -90,9 +245,279 @@ model Tests {
   TestResults    TestResults[]
 }
 
-model EFMigrationsHistory {
-  MigrationId    String @id(map: "PK___EFMigrationsHistory") @db.VarChar(150)
-  ProductVersion String @db.VarChar(32)
+model ServicePackages {
+  Id                String              @id(map: "PK_ServicePackages") @db.Uuid
+  Name              String
+  Description       String
+  Price             Decimal             @db.Decimal
+  DurationDays      Int
+  ImageId           String              @db.Uuid
+  IsActive          Boolean
+  CreatedAt         DateTime?           @db.Timestamptz(6)
+  CreatedBy         String?
+  LastModified      DateTime?           @db.Timestamptz(6)
+  LastModifiedBy    String?
+  UserSubscriptions UserSubscriptions[]
+}
 
-  @@map("__EFMigrationsHistory")
+model UserSubscriptions {
+  Id               String          @id(map: "PK_UserSubscriptions") @db.Uuid
+  PatientId        String          @db.Uuid
+  ServicePackageId String          @db.Uuid
+  StartDate        DateTime        @db.Timestamptz(6)
+  EndDate          DateTime        @db.Timestamptz(6)
+  PromoCodeId      String?         @db.Uuid
+  GiftId           String?         @db.Uuid
+  Status           String          @db.VarChar(20)
+  FinalPrice       Decimal         @db.Decimal
+  CreatedAt        DateTime?       @db.Timestamptz(6)
+  CreatedBy        String?
+  LastModified     DateTime?       @db.Timestamptz(6)
+  LastModifiedBy   String?
+  ServicePackages  ServicePackages @relation(fields: [ServicePackageId], references: [Id], onUpdate: NoAction, map: "FK_UserSubscriptions_ServicePackages_ServicePackageId")
+
+  @@index([ServicePackageId], map: "IX_UserSubscriptions_ServicePackageId")
+}
+
+model Bookings {
+  Id          String   @id(map: "PK_Bookings") @db.Uuid
+  BookingCode String
+  DoctorId    String   @db.Uuid
+  PatientId   String   @db.Uuid
+  Date        DateTime @db.Date
+  StartTime   DateTime @db.Time(6)
+  Duration    Int
+  Price       Decimal  @db.Decimal
+  PromoCodeId String?  @db.Uuid
+  GiftCodeId  String?  @db.Uuid
+  Status      String   @db.VarChar(20)
+}
+
+model DoctorAvailabilities {
+  Id        String   @id(map: "PK_DoctorAvailabilities") @db.Uuid
+  DoctorId  String   @db.Uuid
+  Date      DateTime @db.Date
+  StartTime DateTime @db.Time(6)
+}
+
+model DoctorSlotDurations {
+  Id           String @id(map: "PK_DoctorSlotDurations") @db.Uuid
+  DoctorId     String @db.Uuid
+  SlotDuration Int
+  SlotsPerDay  Int
+}
+
+model ScheduleActivities {
+  Id                      String   @id(map: "PK_ScheduleActivities") @db.Uuid
+  SessionId               String   @db.Uuid
+  EntertainmentActivityId String?  @db.Uuid
+  FoodActivityId          String?  @db.Uuid
+  PhysicalActivityId      String?  @db.Uuid
+  TherapeuticActivityId   String?  @db.Uuid
+  Status                  String   @db.VarChar(20)
+  Description             String
+  TimeRange               DateTime @db.Timestamptz(6)
+  Duration                String
+  DateNumber              Int
+  Sessions                Sessions @relation(fields: [SessionId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_ScheduleActivities_Sessions_SessionId")
+
+  @@index([SessionId], map: "IX_ScheduleActivities_SessionId")
+}
+
+model ScheduleFeedbacks {
+  Id           String    @id(map: "PK_ScheduleFeedbacks") @db.Uuid
+  ScheduleId   String    @db.Uuid
+  PatientId    String    @db.Uuid
+  Content      String?
+  Rating       Int
+  FeedbackDate DateTime  @db.Timestamptz(6)
+  Schedules    Schedules @relation(fields: [ScheduleId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_ScheduleFeedbacks_Schedules_ScheduleId")
+
+  @@index([ScheduleId], map: "IX_ScheduleFeedbacks_ScheduleId")
+}
+
+model Schedules {
+  Id                String              @id(map: "PK_Schedules") @db.Uuid
+  PatientId         String              @db.Uuid
+  DoctorId          String?             @db.Uuid
+  StartDate         DateTime            @db.Timestamptz(6)
+  EndDate           DateTime            @db.Timestamptz(6)
+  ScheduleFeedbacks ScheduleFeedbacks[]
+  Sessions          Sessions[]
+}
+
+model Sessions {
+  Id                 String               @id(map: "PK_Sessions") @db.Uuid
+  ScheduleId         String               @db.Uuid
+  Purpose            String
+  Order              Int
+  StartDate          DateTime             @db.Timestamptz(6)
+  EndDate            DateTime             @db.Timestamptz(6)
+  ScheduleActivities ScheduleActivities[]
+  Schedules          Schedules            @relation(fields: [ScheduleId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Sessions_Schedules_ScheduleId")
+
+  @@index([ScheduleId], map: "IX_Sessions_ScheduleId")
+}
+
+model TimeSlotTemplates {
+  Id        String   @id(map: "PK_TimeSlotTemplates") @db.Uuid
+  DayOfWeek Int
+  StartTime DateTime @db.Time(6)
+  EndTime   DateTime @db.Time(6)
+}
+
+model PaymentDetails {
+  Id                      String   @id(map: "PK_PaymentDetails") @db.Uuid
+  PaymentId               String   @db.Uuid
+  Amount                  Decimal  @db.Decimal(18, 2)
+  ExternalTransactionCode String?
+  Status                  String   @default("Pending")
+  CreatedAt               DateTime @db.Timestamptz(6)
+  Payments                Payments @relation(fields: [PaymentId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_PaymentDetails_Payments_PaymentId")
+
+  @@index([PaymentId], map: "IX_PaymentDetails_PaymentId")
+}
+
+model PaymentMethods {
+  Id       String     @id(map: "PK_PaymentMethods") @db.Uuid
+  Name     String
+  Details  String?
+  Payments Payments[]
+}
+
+model Payments {
+  Id               String           @id(map: "PK_Payments") @db.Uuid
+  PatientProfileId String           @db.Uuid
+  TotalAmount      Decimal          @db.Decimal(18, 2)
+  SubscriptionId   String?          @db.Uuid
+  BookingId        String?          @db.Uuid
+  Status           String           @default("Pending")
+  PaymentMethodId  String           @db.Uuid
+  CreatedAt        DateTime?        @db.Timestamptz(6)
+  CreatedBy        String?
+  LastModified     DateTime?        @db.Timestamptz(6)
+  LastModifiedBy   String?
+  PaymentType      String           @default("")
+  PaymentDetails   PaymentDetails[]
+  PaymentMethods   PaymentMethods   @relation(fields: [PaymentMethodId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Payments_PaymentMethods_PaymentMethodId")
+
+  @@index([PaymentMethodId], map: "IX_Payments_PaymentMethodId")
+}
+model EmailTraces {
+  Id        String   @id(map: "PK_EmailTraces") @db.Uuid
+  MessageId String   @db.Uuid
+  To        String
+  Subject   String
+  Body      String
+  Status    Int
+  CreatedAt DateTime @db.Timestamptz(6)
+  TrackerId String
+}
+
+model OutboxMessages {
+  Id             String    @id(map: "PK_OutboxMessages") @db.Uuid
+  Type           String
+  Content        String
+  OccuredOn      DateTime  @db.Timestamptz(6)
+  ProcessedOn    DateTime? @db.Timestamptz(6)
+  CreatedAt      DateTime? @db.Timestamptz(6)
+  CreatedBy      String?
+  LastModified   DateTime? @db.Timestamptz(6)
+  LastModifiedBy String?
+}
+
+model EntertainmentActivities {
+  Id             String @id(map: "PK_EntertainmentActivities") @db.Uuid
+  Name           String
+  Description    String
+  IntensityLevel String @db.VarChar(20)
+  ImpactLevel    String @db.VarChar(20)
+}
+
+model FoodActivities {
+  Id                       String                     @id(map: "PK_FoodActivities") @db.Uuid
+  Name                     String
+  Description              String
+  MealTime                 String                     @db.VarChar(20)
+  IntensityLevel           String                     @db.VarChar(20)
+  FoodActivityFoodCategory FoodActivityFoodCategory[]
+  FoodActivityFoodNutrient FoodActivityFoodNutrient[]
+}
+
+model FoodActivityFoodCategory {
+  FoodActivitiesId String         @db.Uuid
+  FoodCategoriesId String         @db.Uuid
+  FoodActivities   FoodActivities @relation(fields: [FoodActivitiesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FoodActivityFoodCategory_FoodActivities_FoodActivitiesId")
+  FoodCategories   FoodCategories @relation(fields: [FoodCategoriesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FoodActivityFoodCategory_FoodCategories_FoodCategoriesId")
+
+  @@id([FoodActivitiesId, FoodCategoriesId], map: "PK_FoodActivityFoodCategory")
+  @@index([FoodCategoriesId], map: "IX_FoodActivityFoodCategory_FoodCategoriesId")
+}
+
+model FoodActivityFoodNutrient {
+  FoodActivitiesId String         @db.Uuid
+  FoodNutrientsId  String         @db.Uuid
+  FoodActivities   FoodActivities @relation(fields: [FoodActivitiesId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FoodActivityFoodNutrient_FoodActivities_FoodActivitiesId")
+  FoodNutrients    FoodNutrients  @relation(fields: [FoodNutrientsId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_FoodActivityFoodNutrient_FoodNutrients_FoodNutrientsId")
+
+  @@id([FoodActivitiesId, FoodNutrientsId], map: "PK_FoodActivityFoodNutrient")
+  @@index([FoodNutrientsId], map: "IX_FoodActivityFoodNutrient_FoodNutrientsId")
+}
+
+model FoodCategories {
+  Id                       String                     @id(map: "PK_FoodCategories") @db.Uuid
+  Name                     String
+  Description              String
+  FoodActivityFoodCategory FoodActivityFoodCategory[]
+}
+
+model FoodNutrients {
+  Id                       String                     @id(map: "PK_FoodNutrients") @db.Uuid
+  Name                     String
+  Description              String
+  FoodActivityFoodNutrient FoodActivityFoodNutrient[]
+}
+
+model PatientEntertainmentActivities {
+  PatientProfileId        String @db.Uuid
+  EntertainmentActivityId String @db.Uuid
+  PreferenceLevel         String @db.VarChar(20)
+
+  @@id([PatientProfileId, EntertainmentActivityId], map: "PK_PatientEntertainmentActivities")
+}
+
+model PatientPhysicalActivities {
+  PatientProfileId   String @db.Uuid
+  PhysicalActivityId String @db.Uuid
+  PreferenceLevel    String @db.VarChar(20)
+
+  @@id([PatientProfileId, PhysicalActivityId], map: "PK_PatientPhysicalActivities")
+}
+
+model PhysicalActivities {
+  Id             String @id(map: "PK_PhysicalActivities") @db.Uuid
+  Name           String
+  Description    String
+  IntensityLevel String @db.VarChar(20)
+  ImpactLevel    String @db.VarChar(20)
+}
+
+model TherapeuticActivities {
+  Id                String           @id(map: "PK_TherapeuticActivities") @db.Uuid
+  TherapeuticTypeId String           @db.Uuid
+  Name              String
+  Description       String
+  Instructions      String
+  IntensityLevel    String           @db.VarChar(20)
+  ImpactLevel       String           @db.VarChar(20)
+  TherapeuticTypes  TherapeuticTypes @relation(fields: [TherapeuticTypeId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TherapeuticActivities_TherapeuticTypes_TherapeuticTypeId")
+
+  @@index([TherapeuticTypeId], map: "IX_TherapeuticActivities_TherapeuticTypeId")
+}
+
+model TherapeuticTypes {
+  Id                    String                  @id(map: "PK_TherapeuticTypes") @db.Uuid
+  Name                  String
+  Description           String
+  TherapeuticActivities TherapeuticActivities[]
 }
