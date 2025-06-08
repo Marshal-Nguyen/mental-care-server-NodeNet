@@ -30,47 +30,25 @@ router.post("/auth/login", async (req, res) => {
     if (authError) throw authError;
 
     const userId = authData.user.id;
+    console.log("Authenticated user ID:", userId);
 
-    // Get user role
-    const { data: userRoleData, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role_id, roles(name)")
-      .eq("user_id", userId)
+    // Lấy profileId từ PatientProfiles
+    const { data: patientData, error: patientError } = await supabase
+      .from("PatientProfiles")
+      .select("Id")
+      .eq("UserId", userId)
       .single();
-
-    if (roleError || !userRoleData) {
-      return res.status(403).json({ message: "User chưa được gán role" });
+    console.log("Patient profile data:", patientData);
+    if (patientError || !patientData) {
+      console.error("Patient profile error:", patientError);
+      return res.status(404).json({
+        message: "Không tìm thấy hồ sơ bệnh nhân",
+        debug: { patientError },
+      });
     }
 
-    const role = userRoleData.roles.name;
-    let profileId = null;
-
-    // Lấy profileId tương ứng với role
-    if (role === "Doctor") {
-      const { data: doctorData, error: doctorError } = await supabase
-        .from("DoctorProfiles")
-        .select("Id")
-        .eq("UserId", userId)
-        .single();
-
-      if (doctorError || !doctorData) {
-        return res.status(404).json({ message: "Không tìm thấy hồ sơ bác sĩ" });
-      }
-      profileId = doctorData.Id;
-    } else if (role === "Patient") {
-      const { data: patientData, error: patientError } = await supabase
-        .from("PatientProfiles")
-        .select("Id")
-        .eq("UserId", userId)
-        .single();
-
-      if (patientError || !patientData) {
-        return res
-          .status(404)
-          .json({ message: "Không tìm thấy hồ sơ bệnh nhân" });
-      }
-      profileId = patientData.Id;
-    }
+    const role = "Patient"; // Gán trực tiếp role
+    const profileId = patientData.Id;
 
     // Tạo JWT
     const token = jwt.sign(
