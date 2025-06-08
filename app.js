@@ -14,9 +14,12 @@ app.use(
 app.use(express.json());
 
 // Mount route
-const inviteDoctorRoute = require("./src/routes/inviteDoctorRoute");
+const inviteDoctorRoute = require("./src/modules/Auth/Doctor/routes/inviteDoctorRoute");
 app.use("/api", inviteDoctorRoute);
-const oauthLoginRoute = require("./src/routes/oauthLoginRoute");
+const oauthLoginRoute = require("./src/modules/Auth/Doctor/routes/oauthLoginRoute");
 app.use("/api", oauthLoginRoute);
-
+const signUpPatientRoute = require("./src/modules/Auth/Patient/routes/signUpPatientRoute");
+app.use("/api", signUpPatientRoute);
+const oauthLoginPatientRoute = require("./src/modules/Auth/Patient/routes/oauthLoginPatient");
+app.use("/api", oauthLoginPatientRoute);
 module.exports = app;

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const requireManager = require("../middlewares/requireManager");
-const { inviteDoctor } = require("../modules/therapy/inviteDoctorService");
+const requireManager = require("../../../../middlewares/requireManager");
+const { inviteDoctor } = require("../services/inviteDoctorService");
 
 router.post("/invite-doctor", requireManager, async (req, res) => {
   const { email, full_name, specialty } = req.body;
