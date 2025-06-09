@@ -31,6 +31,9 @@ app.use("/api", oauthLoginPatientRoute);
 // Doctor profile
 const doctorProfileRoutes = require('./src/modules/doctorProfile/doctorProfile.routes');
 app.use('/api', doctorProfileRoutes);
+// Patient profile
+const patientProfileRoutes = require('./src/modules/patientProfile/patientProfile.routes');
+app.use('/api', patientProfileRoutes);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");

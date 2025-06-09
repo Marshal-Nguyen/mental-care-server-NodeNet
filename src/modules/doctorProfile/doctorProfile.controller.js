@@ -2,8 +2,10 @@ const doctorProfileService = require('./doctorProfile.service');
 
 exports.getAllDoctorProfiles = async (req, res) => {
     try {
-        const doctorProfiles = await doctorProfileService.getAllDoctorProfiles();
-        res.json(doctorProfiles);
+        const pageIndex = parseInt(req.query.pageIndex) || 1; // Mặc định là 1
+        const pageSize = parseInt(req.query.pageSize) || 10;
+        const result = await doctorProfileService.getAllDoctorProfiles(pageIndex, pageSize);
+        res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
