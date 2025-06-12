@@ -47,7 +47,7 @@ router.post("/auth/login", async (req, res) => {
       });
     }
 
-    const role = "Patient"; // Gán trực tiếp role
+    const role = "User"; // Gán trực tiếp role
     const profileId = patientData.Id;
 
     // Tạo JWT

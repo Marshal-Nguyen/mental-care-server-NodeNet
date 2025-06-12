@@ -5,46 +5,73 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function inviteDoctor({ email, full_name, specialty }) {
-  // 1. Tạo user
-  const { data: user, error: userError } = await supabase.auth.admin.createUser(
-    {
-      email,
-      email_confirm: false,
+async function inviteDoctor({ email, full_name }) {
+  try {
+    // 1. Check required fields
+    if (!email || !full_name) {
+      throw new Error("Thiếu thông tin email hoặc tên đầy đủ");
     }
-  );
-  if (userError) throw userError;
 
-  const userId = user.user.id;
+    // 2. Send invite via Supabase (will use configured redirect URL)
+    const { data: user, error: inviteError } =
+      await supabase.auth.admin.inviteUserByEmail(email, {
+        data: { full_name }, // Add metadata to the invite
+      });
 
-  // 2. Lấy role_id từ bảng roles theo name = 'Doctor'
-  const { data: roles, error: roleFetchError } = await supabase
-    .from("roles")
-    .select("id")
-    .eq("name", "Doctor")
-    .single();
-  if (roleFetchError) throw roleFetchError;
+    if (inviteError) {
+      console.error("Invite error:", inviteError);
+      throw inviteError;
+    }
 
-  const roleId = roles.id;
+    const userId = user.user.id;
+    console.log("New user created with ID:", userId);
 
-  // 3. Gán role Doctor
-  const { error: roleError } = await supabase
-    .from("user_roles")
-    .insert([{ user_id: userId, role_id: roleId }]);
-  if (roleError) throw roleError;
+    // 3. Get Doctor role_id
+    const { data: roles, error: roleFetchError } = await supabase
+      .from("roles")
+      .select("id")
+      .eq("name", "Doctor")
+      .single();
 
-  // 4. Tạo doctor profile
-  const { error: profileError } = await supabase
-    .from("DoctorProfiles")
-    .insert([{ UserId: userId, FullName: full_name, Status: "invited" }]);
-  if (profileError) throw profileError;
+    if (roleFetchError) throw roleFetchError;
 
-  // 5. Gửi email mời
-  const { error: inviteError } =
-    await supabase.auth.admin.inviteUserByEmail(email);
-  if (inviteError) throw inviteError;
+    const roleId = roles.id;
+    if (!roleId) {
+      throw new Error("Không tìm thấy role Doctor");
+    }
 
-  return { userId };
+    // 4. Assign Doctor role
+    const { error: roleError } = await supabase
+      .from("user_roles")
+      .insert([{ user_id: userId, role_id: roleId }]);
+
+    if (roleError) throw roleError;
+    console.log("Role assigned successfully");
+
+    // 5. Create doctor profile
+    const { error: profileError } = await supabase
+      .from("DoctorProfiles")
+      .insert([
+        {
+          UserId: userId,
+          FullName: full_name,
+          Status: "pending_verification", // Set initial status
+          // EmailVerified: false,
+        },
+      ]);
+
+    if (profileError) throw profileError;
+    console.log("Doctor profile created successfully");
+
+    return {
+      success: true,
+      userId,
+      message: "Email mời đã được gửi. Vui lòng kiểm tra hộp thư để xác thực.",
+    };
+  } catch (error) {
+    console.error("Invite doctor error:", error);
+    throw error;
+  }
 }
 
 module.exports = {

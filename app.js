@@ -27,16 +27,18 @@ app.use("/api", signUpPatientRoute);
 
 const oauthLoginPatientRoute = require("./src/modules/Auth/Patient/routes/oauthLoginPatient");
 app.use("/api", oauthLoginPatientRoute);
-
+// Test route
+const testRoutes = require("./src/modules/test/routes/getQuestionTest");
+app.use("/api", testRoutes);
 // Doctor profile
-const doctorProfileRoutes = require('./src/modules/doctorProfile/doctorProfile.routes');
-app.use('/api', doctorProfileRoutes);
+const doctorProfileRoutes = require("./src/modules/doctorProfile/doctorProfile.routes");
+app.use("/api", doctorProfileRoutes);
 // Patient profile
-const patientProfileRoutes = require('./src/modules/patientProfile/patientProfile.routes');
-app.use('/api', patientProfileRoutes);
+const patientProfileRoutes = require("./src/modules/patientProfile/patientProfile.routes");
+app.use("/api", patientProfileRoutes);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
-console.table(listEndpoints(app));  // <-- dòng in ra đẹp
+console.table(listEndpoints(app)); // <-- dòng in ra đẹp
 
 module.exports = app;
