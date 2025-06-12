@@ -74,6 +74,36 @@ async function inviteDoctor({ email, full_name }) {
   }
 }
 
+async function updateDoctorStatus(userId) {
+  console.log("Updating doctor status for userId:", userId);
+  try {
+    // Update doctor profile status
+    const { data: doctor, error: updateError } = await supabase
+      .from("DoctorProfiles")
+      .update({
+        Status: "active", // Change status to active after verification
+      })
+      .eq("UserId", userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error("Status update error:", updateError);
+      throw updateError;
+    }
+
+    return {
+      success: true,
+      doctor,
+      message: "Xác thực email thành công",
+    };
+  } catch (error) {
+    console.error("Update doctor status error:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   inviteDoctor,
+  updateDoctorStatus, // Export the new function
 };
