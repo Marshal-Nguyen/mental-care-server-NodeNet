@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Route: xử lý login từ Google (sau khi client lấy access_token gửi lên)
 router.post("/auth/google/callback", async (req, res) => {
   const { access_token } = req.body;
 
@@ -26,45 +25,205 @@ router.post("/auth/google/callback", async (req, res) => {
   }
 
   const userId = user.id;
+  const userEmail = user.email;
 
-  // Lấy role
+  // Kiểm tra vai trò trong user_roles
   const { data: userRoleData, error: roleError } = await supabase
     .from("user_roles")
-    .select("role_id, roles(name)")
+    .select("role_id")
     .eq("user_id", userId)
     .single();
 
-  if (roleError || !userRoleData) {
-    return res.status(403).json({ message: "User chưa được gán role" });
+  let role, roleId;
+
+  if (roleError && roleError.code === "PGRST116") {
+    // Không tìm thấy vai trò, mặc định gán vai trò Patient
+    const { data: patientRole, error: patientRoleError } = await supabase
+      .from("roles")
+      .select("id, name")
+      .eq("name", "Patient")
+      .single();
+
+    if (patientRoleError || !patientRole) {
+      return res
+        .status(500)
+        .json({ message: "Lỗi khi lấy role Patient", error: patientRoleError });
+    }
+
+    role = patientRole.name;
+    roleId = patientRole.id;
+
+    // Tạo bản ghi trong user_roles cho Patient
+    const { error: insertRoleError } = await supabase
+      .from("user_roles")
+      .insert({ user_id: userId, role_id: roleId });
+
+    if (insertRoleError) {
+      return res
+        .status(500)
+        .json({ message: "Lỗi khi gán role Patient", error: insertRoleError });
+    }
+  } else if (roleError) {
+    return res
+      .status(500)
+      .json({ message: "Lỗi khi kiểm tra vai trò", error: roleError });
+  } else {
+    // Có vai trò, lấy thông tin từ roles
+    const { data: roleData, error: roleFetchError } = await supabase
+      .from("roles")
+      .select("name")
+      .eq("id", userRoleData.role_id)
+      .single();
+
+    if (roleFetchError || !roleData) {
+      return res
+        .status(500)
+        .json({
+          message: "Lỗi khi lấy thông tin vai trò",
+          error: roleFetchError,
+        });
+    }
+
+    role = roleData.name;
+    roleId = userRoleData.role_id;
   }
 
-  const role = userRoleData.roles.name;
+  // Truy vấn hoặc tạo bản ghi trong bảng hồ sơ tương ứng dựa trên role
+  let profileId = null;
 
-  let doctorProfileId = null;
-
-  // Nếu role là Doctor thì truy bảng DoctorProfiles để lấy Id
   if (role === "Doctor") {
-    const { data: doctorData, error: doctorError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from("DoctorProfiles")
       .select("Id")
       .eq("UserId", userId)
       .single();
 
-    if (doctorError || !doctorData) {
-      return res.status(404).json({ message: "Không tìm thấy hồ sơ bác sĩ" });
+    if (profileError && profileError.code !== "PGRST116") {
+      return res
+        .status(500)
+        .json({
+          message: "Lỗi khi truy vấn DoctorProfiles",
+          error: profileError,
+        });
     }
 
-    doctorProfileId = doctorData.Id;
+    if (!profileData) {
+      const { data: newProfileData, error: insertError } = await supabase
+        .from("DoctorProfiles")
+        .insert({
+          UserId: userId,
+          Email: userEmail,
+          FullName: user.email.split("@")[0],
+          CreatedAt: new Date().toISOString(),
+        })
+        .select("Id")
+        .single();
+
+      if (insertError) {
+        return res
+          .status(500)
+          .json({
+            message: "Lỗi khi tạo hồ sơ trong DoctorProfiles",
+            error: insertError,
+          });
+      }
+
+      profileId = newProfileData.Id;
+    } else {
+      profileId = profileData.Id;
+    }
+  } else if (role === "Patient") {
+    const { data: profileData, error: profileError } = await supabase
+      .from("PatientProfiles")
+      .select("Id")
+      .eq("UserId", userId)
+      .single();
+
+    if (profileError && profileError.code !== "PGRST116") {
+      return res
+        .status(500)
+        .json({
+          message: "Lỗi khi truy vấn PatientProfiles",
+          error: profileError,
+        });
+    }
+
+    if (!profileData) {
+      const { data: newProfileData, error: insertError } = await supabase
+        .from("PatientProfiles")
+        .insert({
+          UserId: userId,
+          Email: userEmail,
+          FullName: user.email.split("@")[0],
+          CreatedAt: new Date().toISOString(),
+        })
+        .select("Id")
+        .single();
+
+      if (insertError) {
+        return res
+          .status(500)
+          .json({
+            message: "Lỗi khi tạo hồ sơ trong PatientProfiles",
+            error: insertError,
+          });
+      }
+
+      profileId = newProfileData.Id;
+    } else {
+      profileId = profileData.Id;
+    }
+  } else if (role === "Manager") {
+    const { data: profileData, error: profileError } = await supabase
+      .from("ManagerProfiles")
+      .select("Id")
+      .eq("UserId", userId)
+      .single();
+
+    if (profileError && profileError.code !== "PGRST116") {
+      return res
+        .status(500)
+        .json({
+          message: "Lỗi khi truy vấn ManagerProfiles",
+          error: profileError,
+        });
+    }
+
+    if (!profileData) {
+      const { data: newProfileData, error: insertError } = await supabase
+        .from("ManagerProfiles")
+        .insert({
+          UserId: userId,
+          Email: userEmail,
+          FullName: user.email.split("@")[0],
+          CreatedAt: new Date().toISOString(),
+        })
+        .select("Id")
+        .single();
+
+      if (insertError) {
+        return res
+          .status(500)
+          .json({
+            message: "Lỗi khi tạo hồ sơ trong ManagerProfiles",
+            error: insertError,
+          });
+      }
+
+      profileId = newProfileData.Id;
+    } else {
+      profileId = profileData.Id;
+    }
+  } else {
+    return res.status(403).json({ message: "Vai trò không được hỗ trợ" });
   }
+
+  // Điều chỉnh role trước khi trả về JSON
+  const responseRole = role === "Patient" ? "User" : role;
 
   // Tạo JWT
   const token = jwt.sign(
-    {
-      user_id: userId,
-      email: user.email,
-      role,
-      profileId: doctorProfileId, // thêm vào đây
-    },
+    { user_id: userId, email: userEmail, role, profileId },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
@@ -72,9 +231,9 @@ router.post("/auth/google/callback", async (req, res) => {
   return res.json({
     message: "Đăng nhập thành công",
     token,
-    role,
+    role: responseRole,
     user_id: userId,
-    profileId: doctorProfileId,
+    profileId,
   });
 });
 
