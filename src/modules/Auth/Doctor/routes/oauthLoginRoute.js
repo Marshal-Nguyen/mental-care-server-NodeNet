@@ -76,12 +76,10 @@ router.post("/auth/google/callback", async (req, res) => {
       .single();
 
     if (roleFetchError || !roleData) {
-      return res
-        .status(500)
-        .json({
-          message: "Lỗi khi lấy thông tin vai trò",
-          error: roleFetchError,
-        });
+      return res.status(500).json({
+        message: "Lỗi khi lấy thông tin vai trò",
+        error: roleFetchError,
+      });
     }
 
     role = roleData.name;
@@ -99,12 +97,10 @@ router.post("/auth/google/callback", async (req, res) => {
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
-      return res
-        .status(500)
-        .json({
-          message: "Lỗi khi truy vấn DoctorProfiles",
-          error: profileError,
-        });
+      return res.status(500).json({
+        message: "Lỗi khi truy vấn DoctorProfiles",
+        error: profileError,
+      });
     }
 
     if (!profileData) {
@@ -120,12 +116,10 @@ router.post("/auth/google/callback", async (req, res) => {
         .single();
 
       if (insertError) {
-        return res
-          .status(500)
-          .json({
-            message: "Lỗi khi tạo hồ sơ trong DoctorProfiles",
-            error: insertError,
-          });
+        return res.status(500).json({
+          message: "Lỗi khi tạo hồ sơ trong DoctorProfiles",
+          error: insertError,
+        });
       }
 
       profileId = newProfileData.Id;
@@ -140,12 +134,10 @@ router.post("/auth/google/callback", async (req, res) => {
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
-      return res
-        .status(500)
-        .json({
-          message: "Lỗi khi truy vấn PatientProfiles",
-          error: profileError,
-        });
+      return res.status(500).json({
+        message: "Lỗi khi truy vấn PatientProfiles",
+        error: profileError,
+      });
     }
 
     if (!profileData) {
@@ -161,12 +153,10 @@ router.post("/auth/google/callback", async (req, res) => {
         .single();
 
       if (insertError) {
-        return res
-          .status(500)
-          .json({
-            message: "Lỗi khi tạo hồ sơ trong PatientProfiles",
-            error: insertError,
-          });
+        return res.status(500).json({
+          message: "Lỗi khi tạo hồ sơ trong PatientProfiles",
+          error: insertError,
+        });
       }
 
       profileId = newProfileData.Id;
@@ -181,12 +171,10 @@ router.post("/auth/google/callback", async (req, res) => {
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
-      return res
-        .status(500)
-        .json({
-          message: "Lỗi khi truy vấn ManagerProfiles",
-          error: profileError,
-        });
+      return res.status(500).json({
+        message: "Lỗi khi truy vấn ManagerProfiles",
+        error: profileError,
+      });
     }
 
     if (!profileData) {
@@ -202,12 +190,10 @@ router.post("/auth/google/callback", async (req, res) => {
         .single();
 
       if (insertError) {
-        return res
-          .status(500)
-          .json({
-            message: "Lỗi khi tạo hồ sơ trong ManagerProfiles",
-            error: insertError,
-          });
+        return res.status(500).json({
+          message: "Lỗi khi tạo hồ sơ trong ManagerProfiles",
+          error: insertError,
+        });
       }
 
       profileId = newProfileData.Id;
@@ -221,16 +207,9 @@ router.post("/auth/google/callback", async (req, res) => {
   // Điều chỉnh role trước khi trả về JSON
   const responseRole = role === "Patient" ? "User" : role;
 
-  // Tạo JWT
-  const token = jwt.sign(
-    { user_id: userId, email: userEmail, role, profileId },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
   return res.json({
     message: "Đăng nhập thành công",
-    token,
+    token: access_token,
     role: responseRole,
     user_id: userId,
     profileId,

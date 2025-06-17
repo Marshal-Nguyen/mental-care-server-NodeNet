@@ -9,52 +9,45 @@ const supabase = createClient(
     },
   }
 );
-
 const requireUser = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Thiếu access token" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
   try {
-    // 1. Lấy thông tin user từ access token
+    const authHeader = req.headers.authorization;
+
+    // Add detailed logging
+    console.log("Auth Header:", authHeader);
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Missing or invalid auth header format");
+      return res.status(401).json({
+        error: "Invalid authentication header",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+    console.log("Token:", token?.substring(0, 20) + "..."); // Log partial token for debugging
+
     const {
       data: { user },
-      error: userError,
+      error,
     } = await supabase.auth.getUser(token);
 
-    if (userError || !user) {
-      console.error("Lỗi xác thực user:", userError);
-      return res.status(401).json({ error: "Token không hợp lệ" });
+    if (error) {
+      console.error("Auth Error Details:", {
+        status: error.status,
+        message: error.message,
+        code: error.code,
+      });
+      throw error;
     }
-    // 2. Kiểm tra role
-    const { data: roles, error: roleError } = await supabase
-      .from("user_roles")
-      .select("role_id, roles(name)")
-      .eq("user_id", user.id)
-      .single();
-    if (roleError) {
-      console.error("Lỗi khi truy vấn role:", roleError);
-      return res
-        .status(500)
-        .json({ error: "Không xác định được quyền truy cập" });
-    }
-    if (roleError || !roles || roles.roles.name !== "Patient") {
-      return res.status(403).json({ error: "Bạn không có quyền Patient" });
-    }
-    // Gán user info vào request
-    req.user = {
-      id: user.id,
-      email: user.email,
-      role: roles.roles.name,
-    };
+
+    req.user = user;
     next();
-  } catch (err) {
-    console.error("Auth lỗi:", err.message || err);
-    return res.status(401).json({ error: "Xác thực thất bại" });
+  } catch (error) {
+    console.error("Full Auth Error:", error);
+    return res.status(403).json({
+      error: "Authentication failed",
+      details: error.message,
+    });
   }
 };
 

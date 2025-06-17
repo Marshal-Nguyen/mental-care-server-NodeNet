@@ -30,6 +30,9 @@ router.post("/auth/login", async (req, res) => {
     if (authError) throw authError;
 
     const userId = authData.user.id;
+    const access_token = authData.session.access_token;
+    const refresh_token = authData.session.refresh_token;
+
     console.log("Authenticated user ID:", userId);
 
     // Lấy profileId từ PatientProfiles
@@ -50,21 +53,10 @@ router.post("/auth/login", async (req, res) => {
     const role = "User"; // Gán trực tiếp role
     const profileId = patientData.Id;
 
-    // Tạo JWT
-    const token = jwt.sign(
-      {
-        user_id: userId,
-        email: authData.user.email,
-        role,
-        profileId,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
     return res.json({
       message: "Đăng nhập thành công",
-      token,
+      token: access_token,
+      refresh_token,
       role,
       user_id: userId,
       profileId,
