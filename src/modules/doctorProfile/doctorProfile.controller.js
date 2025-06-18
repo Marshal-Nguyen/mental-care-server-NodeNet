@@ -2,7 +2,7 @@ const doctorProfileService = require('./doctorProfile.service');
 
 exports.getAllDoctorProfiles = async (req, res) => {
     try {
-        const pageIndex = parseInt(req.query.pageIndex) || 1; // Mặc định là 1
+        const pageIndex = parseInt(req.query.pageIndex) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
         const result = await doctorProfileService.getAllDoctorProfiles(pageIndex, pageSize);
         res.json(result);
@@ -20,6 +20,15 @@ exports.getDoctorProfileById = async (req, res) => {
         if (error.message === 'Bác sĩ không tồn tại') {
             return res.status(404).json({ error: error.message });
         }
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getAllSpecialties = async (req, res) => {
+    try {
+        const specialties = await doctorProfileService.getAllSpecialties();
+        res.json(specialties);
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
@@ -51,8 +60,8 @@ exports.updateDoctorProfile = async (req, res) => {
 exports.deleteDoctorProfile = async (req, res) => {
     try {
         const { id } = req.params;
-        await doctorProfileService.deleteDoctorProfile(id);
-        res.status(204).send();
+        const deletedProfile = await doctorProfileService.deleteDoctorProfile(id);
+        res.json(deletedProfile);
     } catch (error) {
         if (error.message === 'Bác sĩ không tồn tại') {
             return res.status(404).json({ error: error.message });

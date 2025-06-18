@@ -34,7 +34,9 @@ app.use('/api', doctorProfileRoutes);
 // Patient profile
 const patientProfileRoutes = require('./src/modules/patientProfile/patientProfile.routes');
 app.use('/api', patientProfileRoutes);
-
+// avatar profile
+const avatarRoutes = require('./src/modules/avatar/avatar.routes');
+app.use('/avatar', avatarRoutes);
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
 console.table(listEndpoints(app));  // <-- dòng in ra đẹp
