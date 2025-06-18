@@ -35,15 +35,19 @@ app.use("/api", testRoutes);
 // Doctor profile
 const doctorProfileRoutes = require("./src/modules/doctorProfile/doctorProfile.routes");
 app.use("/api", doctorProfileRoutes);
-// Patient profile
-const patientProfileRoutes = require('./src/modules/patientProfile/patientProfile.routes');
-app.use('/api', patientProfileRoutes);
-// avatar profile
+
 
 
 // doctor schedule
 const doctorScheduleRoutes = require("./src/modules/doctorSchedule/doctorSchedule.route");
 app.use("/api", doctorScheduleRoutes);
+
+// Patient profile
+const patientProfileRoutes = require("./src/modules/patientProfile/patientProfile.routes");
+app.use("/api", patientProfileRoutes);
+// Chat user
+const getChatUser = require("./src/modules/chat/routes/getChatUsesr");
+app.use("/api", getChatUser);
 
 
 // In ra danh sách route để test
