@@ -8,8 +8,10 @@ require("dotenv").config();
 // Cấu hình CORS
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://emoeaseai-ruby.vercel.app"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -27,18 +29,20 @@ app.use("/api", signUpPatientRoute);
 
 const oauthLoginPatientRoute = require("./src/modules/Auth/Patient/routes/oauthLoginPatient");
 app.use("/api", oauthLoginPatientRoute);
-
+// Test route
+const testRoutes = require("./src/modules/test/routes/getQuestionTest");
+app.use("/api", testRoutes);
 // Doctor profile
-const doctorProfileRoutes = require('./src/modules/doctorProfile/doctorProfile.routes');
-app.use('/api', doctorProfileRoutes);
+const doctorProfileRoutes = require("./src/modules/doctorProfile/doctorProfile.routes");
+app.use("/api", doctorProfileRoutes);
 // Patient profile
+
 const patientProfileRoutes = require('./src/modules/patientProfile/patientProfile.routes');
 app.use('/api', patientProfileRoutes);
 // avatar profile
-const avatarRoutes = require('./src/modules/avatar/avatar.routes');
-app.use('/avatar', avatarRoutes);
+
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
-console.table(listEndpoints(app));  // <-- dòng in ra đẹp
+console.table(listEndpoints(app)); // <-- dòng in ra đẹp
 
 module.exports = app;
