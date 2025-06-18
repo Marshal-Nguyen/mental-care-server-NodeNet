@@ -38,6 +38,9 @@ app.use("/api", doctorProfileRoutes);
 // Patient profile
 const patientProfileRoutes = require("./src/modules/patientProfile/patientProfile.routes");
 app.use("/api", patientProfileRoutes);
+// Chat user
+const getChatUser = require("./src/modules/chat/routes/getChatUsesr");
+app.use("/api", getChatUser);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
