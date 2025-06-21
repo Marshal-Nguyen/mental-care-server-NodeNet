@@ -4,7 +4,8 @@ exports.getAllDoctorProfiles = async (req, res) => {
     try {
         const pageIndex = parseInt(req.query.pageIndex) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
-        const result = await doctorProfileService.getAllDoctorProfiles(pageIndex, pageSize);
+        const specialtiesId = req.query.Specialties || null;
+        const result = await doctorProfileService.getAllDoctorProfiles(pageIndex, pageSize, specialtiesId);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });

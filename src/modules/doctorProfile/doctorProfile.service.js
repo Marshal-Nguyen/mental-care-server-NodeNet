@@ -1,36 +1,44 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10) => {
+exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10, specialtiesId = null) => {
     const start = (pageIndex - 1) * pageSize;
     const end = start + pageSize - 1;
 
-    const { data, error: dataError, count } = await supabase
+    let query = supabase
         .from('DoctorProfiles')
         .select(`
-      Id,
-      UserId,
-      FullName,
-      Gender,
-      Qualifications,
-      YearsOfExperience,
-      Bio,
-      Rating,
-      TotalReviews,
-      Address,
-      Email,
-      PhoneNumber,
-      CreatedAt,
-      CreatedBy,
-      LastModified,
-      LastModifiedBy,
-      Status,
-      DoctorProfileSpecialty (
-        SpecialtiesId,
-        Specialties (Id, Name)
-      )
-    `, { count: 'exact' })
+            Id,
+            UserId,
+            FullName,
+            Gender,
+            Qualifications,
+            YearsOfExperience,
+            Bio,
+            Rating,
+            TotalReviews,
+            Address,
+            Email,
+            PhoneNumber,
+            CreatedAt,
+            CreatedBy,
+            LastModified,
+            LastModifiedBy,
+            Status,
+            DoctorProfileSpecialty (
+                SpecialtiesId,
+                Specialties (Id, Name)
+            )
+        `, { count: 'exact' })
         .range(start, end);
+
+    // Add filter for specialtiesId if provided
+
+    if (specialtiesId) {
+        query = query.filter('DoctorProfileSpecialty.SpecialtiesId', 'eq', specialtiesId).not('DoctorProfileSpecialty', 'is', null);
+    }
+
+    const { data, error: dataError, count } = await query;
     if (dataError) throw dataError;
 
     const processedData = data.map(profile => {

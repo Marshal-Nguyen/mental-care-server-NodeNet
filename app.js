@@ -45,6 +45,9 @@ app.use("/api", doctorScheduleRoutes);
 // Patient profile
 const patientProfileRoutes = require("./src/modules/patientProfile/patientProfile.routes");
 app.use("/api", patientProfileRoutes);
+//avatar
+const avatarRoutes = require("./src/modules/avatar/avatar.routes");
+app.use("/api", avatarRoutes);
 // Chat user
 const getChatUser = require("./src/modules/chat/routes/getChatUsesr");
 app.use("/api", getChatUser);

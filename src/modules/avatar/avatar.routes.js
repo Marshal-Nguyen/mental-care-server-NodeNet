@@ -2,14 +2,11 @@ const express = require('express');
 const router = express.Router();
 const avatarController = require('./avatar.controller');
 const multer = require('multer');
+const upload = multer({ dest: 'C:\\Users\\LENOVO\\OneDrive\\Máy tính\\wdp\\mental-care-server-NodeNet\\src\\modules\\temp\\' });
 
-// Cấu hình multer để xử lý file upload
-const storage = multer.memoryStorage(); // Lưu file vào bộ nhớ để upload lên Supabase
-const upload = multer({ storage: storage });
-
-router.post('/upload/:id', upload.single('avatar'), avatarController.uploadAvatar);
-router.get('/url/:id', avatarController.getAvatarUrl);
-router.get('/all', avatarController.getAllAvatars); // Endpoint mới
+router.post('/profile/:userId/upload', upload.single('image'), avatarController.uploadProfileImage);
+router.put('/profile/:userId/update', upload.single('image'), avatarController.updateProfileImage);
+router.delete('/profile/:userId/delete', avatarController.deleteProfileImage);
+router.get('/profile/:userId/image', avatarController.getProfileImage);
 
 module.exports = router;
-
