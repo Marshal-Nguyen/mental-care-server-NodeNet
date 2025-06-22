@@ -14,7 +14,7 @@ const requireUser = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     // Add detailed logging
-    console.log("Auth Header:", authHeader);
+    // console.log("Auth Header:", authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.log("Missing or invalid auth header format");
@@ -24,7 +24,7 @@ const requireUser = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    console.log("Token:", token?.substring(0, 20) + "..."); // Log partial token for debugging
+    // console.log("Token:", token?.substring(0, 20) + "..."); // Log partial token for debugging
 
     const {
       data: { user },
