@@ -61,7 +61,7 @@ const createBooking = async (req, res) => {
         Price: price,
         PromoCodeId: promoCodeId || null,
         GiftCodeId: giftCodeId || null,
-        Status: "Pending",
+        Status: "Confirmed",
       },
     ]);
 
