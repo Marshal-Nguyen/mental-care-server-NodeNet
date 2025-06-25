@@ -19,7 +19,7 @@ paymentZalo.post("/pay-booking", async (req, res) => {
   //visa
   const embeddata = {
     preferred_payment_methods: ["international_card"],
-    redirecturl: `http://localhost:5173/EMO/booking/${items[0]?.doctorId}?paymentMethod=zalopay`,
+    redirecturl: `http://localhost:5173/EMO/payment-success?paymentMethod=zalopay`,
   };
 
   const transID = Math.floor(Math.random() * 1000000);
