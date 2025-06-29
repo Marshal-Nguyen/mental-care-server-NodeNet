@@ -84,21 +84,89 @@ class DoctorScheduleService {
         let startDate = DateUtils.getMonthStart(year, month);
         const currentDate = new Date();
         currentDate.setUTCHours(0, 0, 0, 0);
-        if (startDate <= currentDate) {
+        const isCurrentMonth = year === currentDate.getUTCFullYear() && month === currentDate.getUTCMonth() + 1;
+
+        // If it's the current month, start from tomorrow
+        if (isCurrentMonth && startDate <= currentDate) {
             startDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
         const endDate = DateUtils.getMonthEnd(year, month);
 
         try {
-            // Use transaction-like behavior with batch operations
-            await supabase.rpc('create_doctor_schedule', {
-                p_doctor_id: doctorId,
-                p_start_date: DateUtils.formatDate(startDate),
-                p_end_date: DateUtils.formatDate(endDate),
-                p_days_of_week: daysOfWeek,
-                p_slot_duration: slotDuration,
-                p_slots_per_day: slotsPerDay
-            });
+            // Step 1: Delete existing availability records for the allowed date range
+            const deleteQuery = supabase
+                .from('DoctorAvailabilities')
+                .delete()
+                .eq('DoctorId', doctorId)
+                .gte('Date', DateUtils.formatDate(startDate))
+                .lte('Date', DateUtils.formatDate(endDate));
+
+            const { error: deleteError } = await deleteQuery;
+            if (deleteError) {
+                throw new ScheduleError(`Failed to delete existing schedule: ${deleteError.message}`);
+            }
+
+            // Step 2: Prepare data for batch insert
+            const availabilityRecords = [];
+            let currentDateIter = new Date(startDate);
+
+            // Loop through each day in the allowed date range
+            while (currentDateIter <= endDate) {
+                const dayOfWeek = currentDateIter.getUTCDay();
+                if (daysOfWeek.includes(dayOfWeek)) {
+                    // Generate time slots for the day
+                    let currentSlot = new Date(currentDateIter);
+                    currentSlot.setUTCHours(8, 0, 0, 0); // Start at 8:00 AM UTC
+                    let slotsGenerated = 0;
+
+                    while (slotsGenerated < slotsPerDay) {
+                        const endTime = new Date(currentSlot.getTime() + slotDuration * 60 * 1000);
+
+                        // Skip lunch break (12:00-13:00)
+                        if (currentSlot.getUTCHours() === 12 && currentSlot.getUTCMinutes() === 0) {
+                            currentSlot.setUTCHours(13, 0, 0, 0);
+                            continue;
+                        }
+
+                        // Stop if beyond working hours (17:00)
+                        if (endTime.getUTCHours() > 17 || (endTime.getUTCHours() === 17 && endTime.getUTCMinutes() > 0)) {
+                            break;
+                        }
+
+                        // Add availability record
+                        availabilityRecords.push({
+                            DoctorId: doctorId,
+                            Date: DateUtils.formatDate(currentSlot),
+                            StartTime: DateUtils.formatTime(currentSlot),
+                            IsAvailable: true
+                        });
+
+                        slotsGenerated++;
+                        currentSlot = endTime;
+                    }
+                }
+                currentDateIter.setUTCDate(currentDateIter.getUTCDate() + 1);
+            }
+
+            // Step 3: Insert new records into DoctorAvailabilities
+            if (availabilityRecords.length > 0) {
+                const { error: insertError } = await supabase
+                    .from('DoctorAvailabilities')
+                    .insert(availabilityRecords);
+
+                if (insertError) {
+                    throw new ScheduleError(`Failed to create schedule: ${insertError.message}`);
+                }
+            }
+
+            // Step 4: Save or update schedule configuration to DoctorSlotDurations
+            await supabase
+                .from('DoctorSlotDurations')
+                .upsert({
+                    DoctorId: doctorId,
+                    SlotDuration: slotDuration,
+                    SlotsPerDay: slotsPerDay
+                });
 
             return { message: `Schedule created successfully for ${month}/${year}` };
         } catch (error) {
@@ -119,7 +187,7 @@ class DoctorScheduleService {
             selectedDate.setUTCHours(0, 0, 0, 0);
             const selectedDateStr = DateUtils.formatDate(selectedDate);
 
-            // Fetch schedule configuration and availability in parallel
+            // Fetch schedule configuration, availability, and bookings in parallel
             const [scheduleRes, availabilityRes, bookingsRes] = await Promise.all([
                 supabase
                     .from('DoctorSlotDurations')
@@ -129,10 +197,9 @@ class DoctorScheduleService {
                     .single(),
                 supabase
                     .from('DoctorAvailabilities')
-                    .select('IsAvailable')
+                    .select('StartTime, IsAvailable')
                     .eq('DoctorId', doctorId)
-                    .eq('Date', selectedDateStr)
-                    .single(),
+                    .eq('Date', selectedDateStr),
                 supabase
                     .from('Bookings')
                     .select('StartTime, Duration')
@@ -141,22 +208,31 @@ class DoctorScheduleService {
             ]);
 
             const { data: schedule, error: scheduleError } = scheduleRes;
-            const { data: availability, error: availError } = availabilityRes;
+            const { data: availabilities, error: availError } = availabilityRes;
             const { data: bookings, error: bookedError } = bookingsRes;
 
+            // Check for schedule configuration errors
             if (scheduleError || !schedule) {
                 throw new ScheduleError(scheduleError?.message || 'Schedule configuration not found');
             }
-            if (availError || !availability?.IsAvailable) {
+
+            // Check for availability errors or no available slots
+            if (availError) {
+                console.error(`Error fetching availability: ${availError.message}`);
+                return { timeSlots: [], message: 'Error fetching availability' };
+            }
+            if (!availabilities || availabilities.length === 0 || availabilities.every(slot => !slot.IsAvailable)) {
                 return { timeSlots: [], message: 'Doctor not available on this date' };
             }
+
+            // Log warning if bookings fetch fails
             if (bookedError) {
                 console.warn(`Warning: Failed to fetch bookings: ${bookedError.message}`);
             }
 
             // Generate time slots
             const { SlotDuration: slotDuration, SlotsPerDay: slotsPerDay } = schedule;
-            const timeSlots = this.generateTimeSlots(selectedDate, slotDuration, slotsPerDay, bookings || []);
+            const timeSlots = this.generateTimeSlots(selectedDate, slotDuration, slotsPerDay, bookings || [], availabilities);
 
             return {
                 timeSlots,

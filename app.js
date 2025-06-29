@@ -50,6 +50,9 @@ app.use("/api", getChatUser);
 //booking
 const booking = require("./src/modules/booking/booking.routes");
 app.use("/api", booking);
+//payment
+const pay = require("./src/modules/payment/payment");
+app.use("/api", pay);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
