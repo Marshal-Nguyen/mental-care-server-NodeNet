@@ -2,10 +2,31 @@ const doctorProfileService = require('./doctorProfile.service');
 
 exports.getAllDoctorProfiles = async (req, res) => {
     try {
-        const pageIndex = parseInt(req.query.pageIndex) || 1;
-        const pageSize = parseInt(req.query.pageSize) || 10;
-        const specialtiesId = req.query.Specialties || null;
-        const result = await doctorProfileService.getAllDoctorProfiles(pageIndex, pageSize, specialtiesId);
+        const { pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc', specialtiesId = null } = req.query;
+        const result = await doctorProfileService.getAllDoctorProfiles(
+            parseInt(pageIndex),
+            parseInt(pageSize),
+            sortBy,
+            sortOrder,
+            specialtiesId
+        );
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.searchDoctorProfilesByName = async (req, res) => {
+    try {
+        const { fullName = '', pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc', specialtiesId = null } = req.query;
+        const result = await doctorProfileService.searchDoctorProfilesByName(
+            fullName,
+            parseInt(pageIndex),
+            parseInt(pageSize),
+            sortBy,
+            sortOrder,
+            specialtiesId
+        );
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });

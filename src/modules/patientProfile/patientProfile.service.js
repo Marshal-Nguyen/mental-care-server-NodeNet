@@ -1,15 +1,57 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-exports.getAllPatientProfiles = async (pageIndex = 1, pageSize = 10) => {
+exports.getAllPatientProfiles = async (pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc') => {
     const start = (pageIndex - 1) * pageSize;
     const end = start + pageSize - 1;
 
-    // Lấy dữ liệu phân trang
+    const validSortFields = ['FullName', 'Gender'];
+    const validSortOrders = ['asc', 'desc'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'FullName';
+    const order = validSortOrders.includes(sortOrder) ? sortOrder : 'asc';
+
     const { data, error: dataError, count } = await supabase
         .from('PatientProfiles')
         .select('*', { count: 'exact' })
+        .order(sortField, { ascending: order === 'asc' })
         .range(start, end);
+
+    if (dataError) throw dataError;
+
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+        data,
+        pageIndex,
+        pageSize,
+        totalCount,
+        totalPages,
+    };
+};
+
+exports.searchPatientProfilesByName = async (fullName = '', pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc') => {
+    const start = (pageIndex - 1) * pageSize;
+    const end = start + pageSize - 1;
+
+    const validSortFields = ['FullName', 'Gender'];
+    const validSortOrders = ['asc', 'desc'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'FullName';
+    const order = validSortOrders.includes(sortOrder) ? sortOrder : 'asc';
+
+    const query = supabase
+        .from('PatientProfiles')
+        .select('*', { count: 'exact' })
+        .order(sortField, { ascending: order === 'asc' })
+        .range(start, end);
+
+    // Thêm điều kiện tìm kiếm nếu fullName không rỗng
+    if (fullName.trim()) {
+        query.ilike('FullName', `%${fullName}%`);
+    }
+
+    const { data, error: dataError, count } = await query;
+
     if (dataError) throw dataError;
 
     const totalCount = count || 0;
@@ -36,7 +78,7 @@ exports.getPatientProfileById = async (id) => {
 };
 
 exports.createPatientProfile = async (profileData) => {
-    const { data, error } = await supabase.from('PatientProfiles').insert([profileData]);
+    const { data, error } = await supabase.from('PatientProfiles').insert([profileData]).select();
     if (error) throw error;
     return data[0];
 };

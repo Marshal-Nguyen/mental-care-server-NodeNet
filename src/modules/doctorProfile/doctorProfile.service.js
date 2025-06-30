@@ -1,9 +1,14 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10, specialtiesId = null) => {
+exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc', specialtiesId = null) => {
     const start = (pageIndex - 1) * pageSize;
     const end = start + pageSize - 1;
+
+    const validSortFields = ['FullName', 'Gender'];
+    const validSortOrders = ['asc', 'desc'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'FullName';
+    const order = validSortOrders.includes(sortOrder) ? sortOrder : 'asc';
 
     let query = supabase
         .from('DoctorProfiles')
@@ -30,9 +35,77 @@ exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10, specialtiesI
                 Specialties (Id, Name)
             )
         `, { count: 'exact' })
+        .order(sortField, { ascending: order === 'asc' })
         .range(start, end);
 
-    // Add filter for specialtiesId if provided
+    if (specialtiesId) {
+        query = query.filter('DoctorProfileSpecialty.SpecialtiesId', 'eq', specialtiesId).not('DoctorProfileSpecialty', 'is', null);
+    }
+
+    const { data, error: dataError, count } = await query;
+    if (dataError) throw dataError;
+
+    const processedData = data.map(profile => {
+        const specialties = profile.DoctorProfileSpecialty.map(s => ({
+            Id: s.Specialties.Id,
+            Name: s.Specialties.Name
+        }));
+        const { DoctorProfileSpecialty, ...rest } = profile;
+        return { ...rest, specialties };
+    });
+
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+        data: processedData,
+        pageIndex,
+        pageSize,
+        totalCount,
+        totalPages,
+    };
+};
+
+exports.searchDoctorProfilesByName = async (fullName = '', pageIndex = 1, pageSize = 10, sortBy = 'FullName', sortOrder = 'asc', specialtiesId = null) => {
+    const start = (pageIndex - 1) * pageSize;
+    const end = start + pageSize - 1;
+
+    const validSortFields = ['FullName', 'Gender'];
+    const validSortOrders = ['asc', 'desc'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'FullName';
+    const order = validSortOrders.includes(sortOrder) ? sortOrder : 'asc';
+
+    let query = supabase
+        .from('DoctorProfiles')
+        .select(`
+            Id,
+            UserId,
+            FullName,
+            Gender,
+            Qualifications,
+            YearsOfExperience,
+            Bio,
+            Rating,
+            TotalReviews,
+            Address,
+            Email,
+            PhoneNumber,
+            CreatedAt,
+            CreatedBy,
+            LastModified,
+            LastModifiedBy,
+            Status,
+            DoctorProfileSpecialty (
+                SpecialtiesId,
+                Specialties (Id, Name)
+            )
+        `, { count: 'exact' })
+        .order(sortField, { ascending: order === 'asc' })
+        .range(start, end);
+
+    if (fullName.trim()) {
+        query = query.ilike('FullName', `%${fullName}%`);
+    }
 
     if (specialtiesId) {
         query = query.filter('DoctorProfileSpecialty.SpecialtiesId', 'eq', specialtiesId).not('DoctorProfileSpecialty', 'is', null);
@@ -66,28 +139,28 @@ exports.getDoctorProfileById = async (id) => {
     const { data, error } = await supabase
         .from('DoctorProfiles')
         .select(`
-      Id,
-      UserId,
-      FullName,
-      Gender,
-      Qualifications,
-      YearsOfExperience,
-      Bio,
-      Rating,
-      TotalReviews,
-      Address,
-      Email,
-      PhoneNumber,
-      CreatedAt,
-      CreatedBy,
-      LastModified,
-      LastModifiedBy,
-      Status,
-      DoctorProfileSpecialty (
-        SpecialtiesId,
-        Specialties (Id, Name)
-      )
-    `)
+            Id,
+            UserId,
+            FullName,
+            Gender,
+            Qualifications,
+            YearsOfExperience,
+            Bio,
+            Rating,
+            TotalReviews,
+            Address,
+            Email,
+            PhoneNumber,
+            CreatedAt,
+            CreatedBy,
+            LastModified,
+            LastModifiedBy,
+            Status,
+            DoctorProfileSpecialty (
+                SpecialtiesId,
+                Specialties (Id, Name)
+            )
+        `)
         .eq('Id', id)
         .single();
     if (error) throw error;
@@ -110,7 +183,7 @@ exports.getAllSpecialties = async () => {
 };
 
 exports.createDoctorProfile = async (profileData) => {
-    const { data, error } = await supabase.from('DoctorProfiles').insert([profileData]);
+    const { data, error } = await supabase.from('DoctorProfiles').insert([profileData]).select();
     if (error) throw error;
     return data[0];
 };
@@ -137,16 +210,13 @@ exports.updateDoctorProfile = async (id, profileData) => {
     }
 
     if (specialties && Array.isArray(specialties)) {
-        // Xóa các mối quan hệ cũ
         await supabase
             .from('DoctorProfileSpecialty')
             .delete()
-            .eq('DoctorProfileId', id);
+            .eq('DoctorProfilesId', id);
 
-        // Lấy danh sách SpecialtiesId từ payload
         const validSpecialtiesIds = specialties.map(spec => spec.Id || spec.id).filter(id => id);
         if (validSpecialtiesIds.length > 0) {
-            // Kiểm tra xem các SpecialtiesId có tồn tại
             const { data: existingSpecialties, error: checkError } = await supabase
                 .from('Specialties')
                 .select('Id')
@@ -160,47 +230,15 @@ exports.updateDoctorProfile = async (id, profileData) => {
                     DoctorProfilesId: id,
                     SpecialtiesId: specialtiesId
                 }));
-            if (specialties !== undefined) {
-                // Luôn xóa toàn bộ chuyên môn cũ trước
+
+            if (specialtyInserts.length > 0) {
                 await supabase
                     .from('DoctorProfileSpecialty')
-                    .delete()
-                    .eq('DoctorProfilesId', id);
-
-                // Nếu mảng specialties có phần tử thì tiếp tục insert lại
-                if (Array.isArray(specialties) && specialties.length > 0) {
-                    // Lấy danh sách SpecialtiesId hợp lệ
-                    const validSpecialtiesIds = specialties.map(spec => spec.Id || spec.id).filter(id => id);
-
-                    if (validSpecialtiesIds.length > 0) {
-                        // Kiểm tra xem các SpecialtiesId có tồn tại
-                        const { data: existingSpecialties, error: checkError } = await supabase
-                            .from('Specialties')
-                            .select('Id')
-                            .in('Id', validSpecialtiesIds);
-                        if (checkError) throw checkError;
-
-                        const existingIds = existingSpecialties.map(s => s.Id);
-                        const specialtyInserts = validSpecialtiesIds
-                            .filter(sId => existingIds.includes(sId))
-                            .map(specialtiesId => ({
-                                DoctorProfilesId: id,
-                                SpecialtiesId: specialtiesId
-                            }));
-
-                        if (specialtyInserts.length > 0) {
-                            await supabase
-                                .from('DoctorProfileSpecialty')
-                                .upsert(specialtyInserts, { onConflict: ['DoctorProfilesId', 'SpecialtiesId'] });
-                        }
-                    }
-                }
+                    .upsert(specialtyInserts, { onConflict: ['DoctorProfilesId', 'SpecialtiesId'] });
             }
-
         }
     }
 
-    // Lấy lại dữ liệu sau khi cập nhật
     const updatedProfile = await exports.getDoctorProfileById(id);
     return updatedProfile;
 };
