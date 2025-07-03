@@ -21,15 +21,6 @@ const createBooking = async (req, res) => {
       giftCodeId,
     } = req.body;
 
-    // const userRole = req.user?.role;
-    // console.log("role", userRole);
-    // if (userRole !== "User") {
-    //   return res.status(403).json({ message: "Only users can make a booking" });
-    // }
-
-    // console.log(req.user);
-
-    // Kiểm tra trùng lịch
     const { data: existingBookings, error: fetchError } = await supabase
       .from("Bookings")
       .select("*")
@@ -45,10 +36,8 @@ const createBooking = async (req, res) => {
         .json({ message: "This time slot is already booked." });
     }
 
-    // Tạo mã BookingCode (ngẫu nhiên)
     const bookingCode = `BK-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    // Tạo lịch hẹn
     const { error: insertError } = await supabase.from("Bookings").insert([
       {
         Id: crypto.randomUUID(),
@@ -76,4 +65,132 @@ const createBooking = async (req, res) => {
   }
 };
 
-module.exports = createBooking;
+const getBookings = async (req, res) => {
+  const {
+    StartDate,
+    EndDate,
+    PageIndex = 1,
+    PageSize = 10,
+    Search = "",
+    SortBy = "Date",
+    SortOrder = "desc",
+    Status,
+    doctorId,
+    patientId,
+    Id,
+  } = req.query;
+
+  const pageIndex = parseInt(PageIndex);
+  const pageSize = parseInt(PageSize);
+  const from = (pageIndex - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  try {
+    let query = supabase
+      .from("Bookings")
+      .select("*", { count: "exact" })
+      .order("Date", { ascending: SortOrder === "asc" })
+      .range(from, to);
+
+    if (Status && Status !== "All") {
+      query = query.eq("Status", Status);
+    }
+
+    if (StartDate) {
+      query = query.gte("Date", StartDate);
+    }
+
+    if (EndDate) {
+      query = query.lte("Date", EndDate);
+    }
+
+    if (Id) {
+      query = query.eq("Id", Id);
+    }
+
+    if (doctorId) {
+      query = query.eq("DoctorId", doctorId);
+    }
+
+    if (patientId) {
+      query = query.eq("PatientId", patientId);
+    }
+
+    if (Search) {
+      query = query.ilike("BookingCode", `%${Search}%`);
+    }
+
+    query = query
+      .order(SortBy, { ascending: SortOrder.toLowerCase() === "asc" })
+      .range(from, to);
+
+    const { data, count, error } = await query;
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Không thể lấy danh sách booking",
+        error: error.message,
+        data: [],
+      });
+    }
+
+    return res.status(200).json({
+      data,
+
+      totalCount: count,
+      pageIndex,
+      pageSize,
+      totalPages: Math.ceil(count / pageSize),
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server",
+      error: err.message,
+      data: [],
+    });
+  }
+};
+
+const updateBookingStatus = async (req, res) => {
+  const { bookingId } = req.params;
+  const { status } = req.body;
+
+  if (!bookingId || !status) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu bookingId hoặc status cần cập nhật",
+    });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("Bookings")
+      .update({ Status: status })
+      .eq("Id", bookingId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Không thể cập nhật trạng thái booking",
+        error: error.message,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Cập nhật trạng thái thành công",
+      data,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi máy chủ",
+      error: err.message,
+    });
+  }
+};
+
+module.exports = { createBooking, getBookings, updateBookingStatus };

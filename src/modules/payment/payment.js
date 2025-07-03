@@ -74,23 +74,6 @@ paymentZalo.post("/pay-booking", async (req, res) => {
         .status(400)
         .json({ message: "Thiếu thông tin bệnh nhân (patientId)" });
     }
-    const { error } = await supabase.from("Payments").insert({
-      Id: uuidv4(),
-      PatientProfileId: items[0]?.patientId,
-      TotalAmount: amount,
-      Status: "Pending",
-      PaymentMethodId: "ab388a73-94e6-4d54-a546-45888fa28055",
-      CreatedAt: new Date().toISOString(),
-      CreatedBy: items[0]?.patientId,
-      PaymentType: "booking",
-    });
-
-    if (error) {
-      console.error("Insert Payments error:", error);
-      return res
-        .status(500)
-        .json({ message: "DB insert error", error: error.message });
-    }
 
     return res.status(200).json(response.data);
   } catch (error) {
@@ -119,23 +102,8 @@ paymentZalo.post(`/callback`, async (req, res) => {
     const { app_trans_id, app_user, amount, embed_data } = dataJson;
     const embed = JSON.parse(embed_data);
 
-    const { data: payment, error: paymentErr } = await supabase
-      .from("Payments")
-      .select("Id")
-      .eq("TotalAmount", amount)
-      .eq("PatientProfileId", app_user)
-      .eq("Status", "Pending")
-      .order("CreatedAt", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (paymentErr || !payment) {
-      result.return_code = 0;
-      result.return_message = "Payment not found";
-      return res.json(result);
-    }
-
     const bookingId = uuidv4();
+    const paymentId = uuidv4();
     const bookingCode = "BK" + Math.floor(Math.random() * 1000000);
 
     const { error: bookingErr } = await supabase.from("Bookings").insert({
@@ -156,19 +124,20 @@ paymentZalo.post(`/callback`, async (req, res) => {
       return res.json(result);
     }
 
-    await supabase
-      .from("Payments")
-      .update({
-        Status: "Success",
-        BookingId: bookingId,
-        LastModified: new Date().toISOString(),
-        LastModifiedBy: embed.patientId,
-      })
-      .eq("Id", payment.Id);
+    await supabase.from("Payments").insert({
+      Id: paymentId,
+      PatientProfileId: embed.patientId,
+      TotalAmount: amount,
+      Status: "Success",
+      PaymentMethodId: "ab388a73-94e6-4d54-a546-45888fa28055",
+      CreatedAt: new Date().toISOString(),
+      CreatedBy: embed.patientId,
+      PaymentType: "booking",
+    });
 
     await supabase.from("PaymentDetails").insert({
       Id: uuidv4(),
-      PaymentId: payment.Id,
+      PaymentId: paymentId,
       Amount: amount,
       ExternalTransactionCode: app_trans_id,
       Status: "Completed",
@@ -188,6 +157,7 @@ paymentZalo.post(`/callback`, async (req, res) => {
 paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
   const { transId } = req.params;
 
+  console.log(transId);
   try {
     const { data: paymentDetail, error: detailErr } = await supabase
       .from("PaymentDetails")
@@ -201,7 +171,6 @@ paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
         .json({ success: false, message: "Không tìm thấy giao dịch" });
     }
 
-    // Lấy thêm thông tin từ bảng Payments
     const { data: payment, error: paymentErr } = await supabase
       .from("Payments")
       .select("BookingId, Status")
@@ -225,6 +194,115 @@ paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Lỗi máy chủ", error: err.message });
+  }
+});
+
+paymentZalo.get("/", async (req, res) => {
+  const {
+    PageIndex = 1,
+    PageSize = 10,
+    SortOrder = "desc",
+    Status = "Success",
+    StartDate,
+    EndDate,
+  } = req.query;
+
+  const pageIndex = parseInt(PageIndex);
+  const pageSize = parseInt(PageSize);
+  const from = (pageIndex - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  try {
+    let paymentQuery = supabase
+      .from("Payments")
+      .select("*", { count: "exact" })
+      .order("CreatedAt", { ascending: SortOrder === "asc" })
+      .range(from, to);
+
+    if (Status && Status !== "All") {
+      paymentQuery = paymentQuery.eq("Status", Status);
+    }
+
+    if (StartDate) {
+      paymentQuery = paymentQuery.gte("CreatedAt", StartDate);
+    }
+
+    if (EndDate) {
+      paymentQuery = paymentQuery.lte("CreatedAt", EndDate);
+    }
+
+    const { data: payments, count, error: paymentErr } = await paymentQuery;
+
+    if (paymentErr) {
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi lấy dữ liệu thanh toán",
+        error: paymentErr.message,
+      });
+    }
+
+    const bookingIds = payments.map((p) => p.BookingId).filter(Boolean);
+
+    const { data: bookings, error: bookingErr } = await supabase
+      .from("Bookings")
+      .select("Id, PatientId, DoctorId")
+      .in("Id", bookingIds);
+
+    if (bookingErr) throw bookingErr;
+
+    const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
+    const doctorIds = [...new Set(bookings.map((b) => b.DoctorId))];
+
+    const [{ data: patients }, { data: doctors }] = await Promise.all([
+      supabase
+        .from("PatientProfiles")
+        .select("Id, FullName")
+        .in("Id", patientIds),
+      supabase
+        .from("DoctorProfiles")
+        .select("Id, FullName")
+        .in("Id", doctorIds),
+    ]);
+
+    const bookingsMap = Object.fromEntries(bookings.map((b) => [b.Id, b]));
+    const patientsMap = Object.fromEntries(
+      patients.map((p) => [p.Id, p.FullName])
+    );
+    const doctorsMap = Object.fromEntries(
+      doctors.map((d) => [d.Id, d.FullName])
+    );
+
+    const result = payments.map((payment) => {
+      const booking = bookingsMap[payment.BookingId] || {};
+      const patientName = patientsMap[booking.PatientId] || "N/A";
+      const doctorName = doctorsMap[booking.DoctorId] || "N/A";
+
+      return {
+        id: payment.Id,
+        amount: payment.TotalAmount,
+        status: payment.Status,
+        createdAt: payment.CreatedAt,
+        patientName,
+        doctorName,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      pagination: {
+        total: count,
+        pageIndex,
+        pageSize,
+        totalPages: Math.ceil(count / pageSize),
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server",
+      error: err.message,
+    });
   }
 });
 
