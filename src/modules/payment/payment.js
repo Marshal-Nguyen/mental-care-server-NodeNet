@@ -129,6 +129,7 @@ paymentZalo.post(`/callback`, async (req, res) => {
       PatientProfileId: embed.patientId,
       TotalAmount: amount,
       Status: "Success",
+      BookingId: bookingId,
       PaymentMethodId: "ab388a73-94e6-4d54-a546-45888fa28055",
       CreatedAt: new Date().toISOString(),
       CreatedBy: embed.patientId,
@@ -205,6 +206,8 @@ paymentZalo.get("/", async (req, res) => {
     Status = "Success",
     StartDate,
     EndDate,
+    patientId,
+    Id,
   } = req.query;
 
   const pageIndex = parseInt(PageIndex);
@@ -231,6 +234,14 @@ paymentZalo.get("/", async (req, res) => {
       paymentQuery = paymentQuery.lte("CreatedAt", EndDate);
     }
 
+    if (Id) {
+      paymentQuery = paymentQuery.eq("Id", Id);
+    }
+
+    if (patientId) {
+      paymentQuery = paymentQuery.eq("PatientProfileId", patientId);
+    }
+
     const { data: payments, count, error: paymentErr } = await paymentQuery;
 
     if (paymentErr) {
@@ -251,31 +262,22 @@ paymentZalo.get("/", async (req, res) => {
     if (bookingErr) throw bookingErr;
 
     const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
-    const doctorIds = [...new Set(bookings.map((b) => b.DoctorId))];
 
-    const [{ data: patients }, { data: doctors }] = await Promise.all([
+    const [{ data: patients }] = await Promise.all([
       supabase
         .from("PatientProfiles")
         .select("Id, FullName")
         .in("Id", patientIds),
-      supabase
-        .from("DoctorProfiles")
-        .select("Id, FullName")
-        .in("Id", doctorIds),
     ]);
 
     const bookingsMap = Object.fromEntries(bookings.map((b) => [b.Id, b]));
     const patientsMap = Object.fromEntries(
       patients.map((p) => [p.Id, p.FullName])
     );
-    const doctorsMap = Object.fromEntries(
-      doctors.map((d) => [d.Id, d.FullName])
-    );
 
     const result = payments.map((payment) => {
       const booking = bookingsMap[payment.BookingId] || {};
       const patientName = patientsMap[booking.PatientId] || "N/A";
-      const doctorName = doctorsMap[booking.DoctorId] || "N/A";
 
       return {
         id: payment.Id,
@@ -283,7 +285,6 @@ paymentZalo.get("/", async (req, res) => {
         status: payment.Status,
         createdAt: payment.CreatedAt,
         patientName,
-        doctorName,
       };
     });
 

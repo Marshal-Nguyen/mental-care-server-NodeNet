@@ -116,6 +116,7 @@ const getBookings = async (req, res) => {
       query = query.eq("PatientId", patientId);
     }
 
+    // Tìm kiếm theo BookingCode (nếu có)
     if (Search) {
       query = query.ilike("BookingCode", `%${Search}%`);
     }
@@ -166,8 +167,6 @@ const getBookings = async (req, res) => {
     const { data: statusCounts, error: statusError } = await supabase
       .from("Bookings")
       .select("Status, count:Id", { groupBy: "Status" });
-
-    console.log(statusCounts);
 
     const statusSummary = {};
     statusCounts.forEach((s) => {
