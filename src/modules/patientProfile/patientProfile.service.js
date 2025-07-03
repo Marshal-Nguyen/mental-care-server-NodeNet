@@ -45,7 +45,6 @@ exports.searchPatientProfilesByName = async (fullName = '', pageIndex = 1, pageS
         .order(sortField, { ascending: order === 'asc' })
         .range(start, end);
 
-    // Thêm điều kiện tìm kiếm nếu fullName không rỗng
     if (fullName.trim()) {
         query.ilike('FullName', `%${fullName}%`);
     }
@@ -116,4 +115,40 @@ exports.deletePatientProfile = async (id) => {
     if (error) throw error;
     if (!data || data.length === 0) throw new Error('Bệnh nhân không tồn tại');
     return data[0];
+};
+
+exports.getPatientStatistics = async () => {
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
+
+    // Số người dùng đăng ký tháng này
+    const { count: registeredThisMonth } = await supabase
+        .from('PatientProfiles')
+        .select('*', { count: 'exact' })
+        .gte('CreatedAt', startOfMonth.toISOString())
+        .lte('CreatedAt', endOfMonth.toISOString());
+
+    // Số lượng giới tính
+    const { data: genderData } = await supabase
+        .from('PatientProfiles')
+        .select('Gender')
+        .gte('CreatedAt', startOfMonth.toISOString())
+        .lte('CreatedAt', endOfMonth.toISOString());
+    const genderStats = {
+        male: genderData.filter(p => p.Gender === 'Male').length,
+        female: genderData.filter(p => p.Gender === 'Female').length,
+        other: genderData.filter(p => p.Gender !== 'Male' && p.Gender !== 'Female' || !p.Gender).length,
+    };
+
+    // Tổng số người
+    const { count: totalCount } = await supabase
+        .from('PatientProfiles')
+        .select('*', { count: 'exact' });
+
+    return {
+        registeredThisMonth: registeredThisMonth || 0,
+        genderStats,
+        totalCount: totalCount || 0,
+    };
 };

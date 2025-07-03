@@ -80,3 +80,12 @@ exports.deletePatientProfile = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.getPatientStatistics = async (req, res) => {
+    try {
+        const stats = await patientProfileService.getPatientStatistics();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
