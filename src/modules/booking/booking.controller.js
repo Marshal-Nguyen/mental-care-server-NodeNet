@@ -124,7 +124,7 @@ const getBookings = async (req, res) => {
       .order(SortBy, { ascending: SortOrder.toLowerCase() === "asc" })
       .range(from, to);
 
-    const { data, count, error } = await query;
+    const { data: bookings, count, error } = await query;
 
     if (error) {
       return res.status(500).json({
@@ -135,10 +135,57 @@ const getBookings = async (req, res) => {
       });
     }
 
+    const doctorIds = [...new Set(bookings.map((b) => b.DoctorId))];
+    const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
+
+    const [{ data: doctors }, { data: patients }] = await Promise.all([
+      supabase
+        .from("DoctorProfiles")
+        .select("Id, FullName")
+        .in("Id", doctorIds),
+      supabase
+        .from("PatientProfiles")
+        .select("Id, FullName")
+        .in("Id", patientIds),
+    ]);
+
+    // Tạo map để dễ tra cứu
+    const doctorMap = Object.fromEntries(
+      doctors.map((d) => [d.Id, d.FullName])
+    );
+    const patientMap = Object.fromEntries(
+      patients.map((p) => [p.Id, p.FullName])
+    );
+
+    const result = bookings.map((booking) => ({
+      ...booking,
+      doctorName: doctorMap[booking.DoctorId] || "N/A",
+      patientName: patientMap[booking.PatientId] || "N/A",
+    }));
+
+    const { data: statusCounts, error: statusError } = await supabase
+      .from("Bookings")
+      .select("Status, count:Id", { groupBy: "Status" });
+
+    console.log(statusCounts);
+
+    const statusSummary = {};
+    statusCounts.forEach((s) => {
+      const status = s.Status;
+      statusSummary[status] = (statusSummary[status] || 0) + 1;
+    });
+
     return res.status(200).json({
-      data,
+      data: result,
 
       totalCount: count,
+      statusSummary: {
+        totalConfirmed: statusSummary["Confirmed"] || 0,
+        totalWaiting: statusSummary["Waiting"] || 0,
+        totalPending: statusSummary["Pending"] || 0,
+        totalCancelled: statusSummary["Cancelled"] || 0,
+        totalCompleted: statusSummary["Completed"] || 0,
+      },
       pageIndex,
       pageSize,
       totalPages: Math.ceil(count / pageSize),
