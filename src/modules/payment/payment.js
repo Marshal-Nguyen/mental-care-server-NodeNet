@@ -270,6 +270,14 @@ paymentZalo.get("/", async (req, res) => {
         .in("Id", patientIds),
     ]);
 
+    const { data: totalData, error: totalError } = await supabase
+      .from("Payments")
+      .select("TotalAmount", { count: "exact", head: false });
+
+    if (totalError) throw totalError;
+
+    const totalAmount = totalData.reduce((sum, p) => sum + p.TotalAmount, 0);
+
     const bookingsMap = Object.fromEntries(bookings.map((b) => [b.Id, b]));
     const patientsMap = Object.fromEntries(
       patients.map((p) => [p.Id, p.FullName])
@@ -283,6 +291,7 @@ paymentZalo.get("/", async (req, res) => {
         id: payment.Id,
         amount: payment.TotalAmount,
         status: payment.Status,
+        bookingId: payment.BookingId,
         createdAt: payment.CreatedAt,
         patientName,
       };
@@ -291,12 +300,12 @@ paymentZalo.get("/", async (req, res) => {
     return res.status(200).json({
       success: true,
       data: result,
-      pagination: {
-        total: count,
-        pageIndex,
-        pageSize,
-        totalPages: Math.ceil(count / pageSize),
-      },
+
+      totalAmount: totalAmount,
+      total: count,
+      pageIndex,
+      pageSize,
+      totalPages: Math.ceil(count / pageSize),
     });
   } catch (err) {
     return res.status(500).json({
