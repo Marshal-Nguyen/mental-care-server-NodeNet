@@ -255,7 +255,7 @@ paymentZalo.get("/", async (req, res) => {
 
     const { data: bookings, error: bookingErr } = await supabase
       .from("Bookings")
-      .select("Id, PatientId, DoctorId")
+      .select("Id, PatientId, DoctorId, BookingCode")
       .in("Id", bookingIds);
 
     if (bookingErr) throw bookingErr;
@@ -308,6 +308,7 @@ paymentZalo.get("/", async (req, res) => {
         amount: payment.TotalAmount,
         status: payment.Status,
         bookingId: payment.BookingId,
+        bookingCode: booking.BookingCode || "N/A",
         createdAt: payment.CreatedAt,
         patientName,
       };
@@ -316,7 +317,6 @@ paymentZalo.get("/", async (req, res) => {
     return res.status(200).json({
       success: true,
       data: result,
-
       totalAmount: totalAmount,
       total: count,
       pageIndex,
