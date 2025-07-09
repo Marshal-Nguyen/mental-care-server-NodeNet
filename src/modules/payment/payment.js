@@ -227,11 +227,10 @@ paymentZalo.get("/", async (req, res) => {
     }
 
     if (StartDate) {
-      paymentQuery = paymentQuery.gte("CreatedAt", StartDate);
+      paymentQuery = paymentQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
     }
-
     if (EndDate) {
-      paymentQuery = paymentQuery.lte("CreatedAt", EndDate);
+      paymentQuery = paymentQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
     }
 
     if (Id) {
@@ -270,9 +269,26 @@ paymentZalo.get("/", async (req, res) => {
         .in("Id", patientIds),
     ]);
 
-    const { data: totalData, error: totalError } = await supabase
-      .from("Payments")
-      .select("TotalAmount", { count: "exact", head: false });
+    // Tính tổng tiền theo filter thời gian & các điều kiện
+    let totalQuery = supabase.from("Payments").select("TotalAmount");
+
+    if (Status && Status !== "All") {
+      totalQuery = totalQuery.eq("Status", Status);
+    }
+    if (StartDate) {
+      totalQuery = totalQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
+    }
+    if (EndDate) {
+      totalQuery = totalQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
+    }
+    if (Id) {
+      totalQuery = totalQuery.eq("Id", Id);
+    }
+    if (patientId) {
+      totalQuery = totalQuery.eq("PatientProfileId", patientId);
+    }
+
+    const { data: totalData, error: totalError } = await totalQuery;
 
     if (totalError) throw totalError;
 
