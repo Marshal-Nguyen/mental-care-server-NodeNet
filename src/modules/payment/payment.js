@@ -492,10 +492,8 @@ paymentZalo.get("/daily-total", async (req, res) => {
     });
   }
 
-  // const dates = [];
-  const totals = [];
-
   let totalAmountInRange = 0;
+  let totalPaymentsInRange = 0;
 
   try {
     const { data: allPayments, error } = await supabase
@@ -511,21 +509,29 @@ paymentZalo.get("/daily-total", async (req, res) => {
 
     allPayments.forEach((payment) => {
       const date = moment(payment.CreatedAt).format("YYYY-MM-DD");
-      paymentsByDate[date] = (paymentsByDate[date] || 0) + payment.TotalAmount;
+      if (!paymentsByDate[date]) {
+        paymentsByDate[date] = { totalAmount: 0, count: 0 };
+      }
+      paymentsByDate[date].totalAmount += payment.TotalAmount;
+      paymentsByDate[date].count += 1;
       totalAmountInRange += payment.TotalAmount;
+      totalPaymentsInRange += 1;
     });
 
+    const totals = [];
     for (let m = start.clone(); m.isSameOrBefore(end); m.add(1, "day")) {
       const dateStr = m.format("YYYY-MM-DD");
       totals.push({
         date: dateStr,
-        totalAmount: paymentsByDate[dateStr] || 0,
+        totalAmount: paymentsByDate[dateStr]?.totalAmount || 0,
+        paymentCount: paymentsByDate[dateStr]?.count || 0,
       });
     }
 
     return res.status(200).json({
       data: totals,
       totalAmountInRange,
+      totalPaymentsInRange,
     });
   } catch (err) {
     return res.status(500).json({
