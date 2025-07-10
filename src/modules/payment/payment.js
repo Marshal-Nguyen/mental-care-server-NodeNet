@@ -198,6 +198,152 @@ paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
   }
 });
 
+// paymentZalo.get("/", async (req, res) => {
+//   const {
+//     PageIndex = 1,
+//     PageSize = 10,
+//     SortOrder = "desc",
+//     Status = "Success",
+//     StartDate,
+//     EndDate,
+//     patientId,
+//     Id,
+//   } = req.query;
+
+//   const pageIndex = parseInt(PageIndex);
+//   const pageSize = parseInt(PageSize);
+//   const from = (pageIndex - 1) * pageSize;
+//   const to = from + pageSize - 1;
+
+//   try {
+//     let paymentQuery = supabase
+//       .from("Payments")
+//       .select("*", { count: "exact" })
+//       .order("CreatedAt", { ascending: SortOrder === "asc" })
+//       .range(from, to);
+
+//     if (Status && Status !== "All") {
+//       paymentQuery = paymentQuery.eq("Status", Status);
+//     }
+
+//     if (StartDate) {
+//       paymentQuery = paymentQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
+//     }
+//     if (EndDate) {
+//       paymentQuery = paymentQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
+//     }
+
+//     if (Id) {
+//       paymentQuery = paymentQuery.eq("Id", Id);
+//     }
+
+//     if (patientId) {
+//       paymentQuery = paymentQuery.eq("PatientProfileId", patientId);
+//     }
+
+//     const { data: payments, count, error: paymentErr } = await paymentQuery;
+
+//     if (paymentErr) {
+//       return res.status(500).json({
+//         success: false,
+//         message: "Lỗi lấy dữ liệu thanh toán",
+//         error: paymentErr.message,
+//       });
+//     }
+
+//     const bookingIds = payments.map((p) => p.BookingId).filter(Boolean);
+
+//     const { data: bookings, error: bookingErr } = await supabase
+//       .from("Bookings")
+//       .select("Id, PatientId, DoctorId, BookingCode")
+//       .in("Id", bookingIds);
+
+//     if (bookingErr) throw bookingErr;
+
+//     const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
+
+//     const [{ data: patients }] = await Promise.all([
+//       supabase
+//         .from("PatientProfiles")
+//         .select("Id, FullName")
+//         .in("Id", patientIds),
+//     ]);
+
+//     const paymentIds = payments.map((p) => p.Id);
+//     const { data: paymentDetails, error: paymentDetailErr } = await supabase
+//       .from("PaymentDetails")
+//       .select("PaymentId, ExternalTransactionCode")
+//       .in("PaymentId", paymentIds);
+
+//     if (paymentDetailErr) throw paymentDetailErr;
+
+//     const transactionCodeMap = Object.fromEntries(
+//       paymentDetails.map((d) => [d.PaymentId, d.ExternalTransactionCode])
+//     );
+
+//     let totalQuery = supabase.from("Payments").select("TotalAmount");
+
+//     if (Status && Status !== "All") {
+//       totalQuery = totalQuery.eq("Status", Status);
+//     }
+//     if (StartDate) {
+//       totalQuery = totalQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
+//     }
+//     if (EndDate) {
+//       totalQuery = totalQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
+//     }
+//     if (Id) {
+//       totalQuery = totalQuery.eq("Id", Id);
+//     }
+//     if (patientId) {
+//       totalQuery = totalQuery.eq("PatientProfileId", patientId);
+//     }
+
+//     const { data: totalData, error: totalError } = await totalQuery;
+
+//     if (totalError) throw totalError;
+
+//     const totalAmount = totalData.reduce((sum, p) => sum + p.TotalAmount, 0);
+
+//     const bookingsMap = Object.fromEntries(bookings.map((b) => [b.Id, b]));
+//     const patientsMap = Object.fromEntries(
+//       patients.map((p) => [p.Id, p.FullName])
+//     );
+
+//     const result = payments.map((payment) => {
+//       const booking = bookingsMap[payment.BookingId] || {};
+//       const patientName = patientsMap[booking.PatientId] || "N/A";
+
+//       return {
+//         id: payment.Id,
+//         transaction_code: transactionCodeMap[payment.Id] || "N/A",
+//         amount: payment.TotalAmount,
+//         status: payment.Status,
+//         bookingId: payment.BookingId,
+//         bookingCode: booking.BookingCode || "N/A",
+//         createdAt: payment.CreatedAt,
+//         patientName,
+//       };
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       data: result,
+//       totalAmount: totalAmount,
+//       total: count,
+//       pageIndex,
+//       pageSize,
+//       totalPages: Math.ceil(count / pageSize),
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Lỗi server",
+//       error: err.message,
+//     });
+//   }
+// });
+
 paymentZalo.get("/", async (req, res) => {
   const {
     PageIndex = 1,
@@ -215,31 +361,23 @@ paymentZalo.get("/", async (req, res) => {
   const from = (pageIndex - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  const applyFilters = (query) => {
+    if (Status && Status !== "All") query = query.eq("Status", Status);
+    if (StartDate) query = query.gte("CreatedAt", `${StartDate}T00:00:00`);
+    if (EndDate) query = query.lte("CreatedAt", `${EndDate}T23:59:59.999`);
+    if (Id) query = query.eq("Id", Id);
+    if (patientId) query = query.eq("PatientProfileId", patientId);
+    return query;
+  };
+
   try {
-    let paymentQuery = supabase
-      .from("Payments")
-      .select("*", { count: "exact" })
-      .order("CreatedAt", { ascending: SortOrder === "asc" })
-      .range(from, to);
-
-    if (Status && Status !== "All") {
-      paymentQuery = paymentQuery.eq("Status", Status);
-    }
-
-    if (StartDate) {
-      paymentQuery = paymentQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
-    }
-    if (EndDate) {
-      paymentQuery = paymentQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
-    }
-
-    if (Id) {
-      paymentQuery = paymentQuery.eq("Id", Id);
-    }
-
-    if (patientId) {
-      paymentQuery = paymentQuery.eq("PatientProfileId", patientId);
-    }
+    let paymentQuery = applyFilters(
+      supabase
+        .from("Payments")
+        .select("*", { count: "exact" })
+        .order("CreatedAt", { ascending: SortOrder === "asc" })
+        .range(from, to)
+    );
 
     const { data: payments, count, error: paymentErr } = await paymentQuery;
 
@@ -252,44 +390,46 @@ paymentZalo.get("/", async (req, res) => {
     }
 
     const bookingIds = payments.map((p) => p.BookingId).filter(Boolean);
-
-    const { data: bookings, error: bookingErr } = await supabase
-      .from("Bookings")
-      .select("Id, PatientId, DoctorId, BookingCode")
-      .in("Id", bookingIds);
-
-    if (bookingErr) throw bookingErr;
+    let bookings = [];
+    if (bookingIds.length > 0) {
+      const { data, error } = await supabase
+        .from("Bookings")
+        .select("Id, PatientId, DoctorId, BookingCode")
+        .in("Id", bookingIds);
+      if (error) throw error;
+      bookings = data;
+    }
 
     const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
-
-    const [{ data: patients }] = await Promise.all([
-      supabase
+    let patients = [];
+    if (patientIds.length > 0) {
+      const { data, error } = await supabase
         .from("PatientProfiles")
         .select("Id, FullName")
-        .in("Id", patientIds),
-    ]);
-
-    // Tính tổng tiền theo filter thời gian & các điều kiện
-    let totalQuery = supabase.from("Payments").select("TotalAmount");
-
-    if (Status && Status !== "All") {
-      totalQuery = totalQuery.eq("Status", Status);
-    }
-    if (StartDate) {
-      totalQuery = totalQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
-    }
-    if (EndDate) {
-      totalQuery = totalQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
-    }
-    if (Id) {
-      totalQuery = totalQuery.eq("Id", Id);
-    }
-    if (patientId) {
-      totalQuery = totalQuery.eq("PatientProfileId", patientId);
+        .in("Id", patientIds);
+      if (error) throw error;
+      patients = data;
     }
 
+    const paymentIds = payments.map((p) => p.Id);
+    let paymentDetails = [];
+    if (paymentIds.length > 0) {
+      const { data, error } = await supabase
+        .from("PaymentDetails")
+        .select("PaymentId, ExternalTransactionCode")
+        .in("PaymentId", paymentIds);
+      if (error) throw error;
+      paymentDetails = data;
+    }
+
+    const transactionCodeMap = Object.fromEntries(
+      paymentDetails.map((d) => [d.PaymentId, d.ExternalTransactionCode])
+    );
+
+    const totalQuery = applyFilters(
+      supabase.from("Payments").select("TotalAmount")
+    );
     const { data: totalData, error: totalError } = await totalQuery;
-
     if (totalError) throw totalError;
 
     const totalAmount = totalData.reduce((sum, p) => sum + p.TotalAmount, 0);
@@ -302,9 +442,9 @@ paymentZalo.get("/", async (req, res) => {
     const result = payments.map((payment) => {
       const booking = bookingsMap[payment.BookingId] || {};
       const patientName = patientsMap[booking.PatientId] || "N/A";
-
       return {
         id: payment.Id,
+        transaction_code: transactionCodeMap[payment.Id] || "N/A",
         amount: payment.TotalAmount,
         status: payment.Status,
         bookingId: payment.BookingId,
@@ -317,7 +457,7 @@ paymentZalo.get("/", async (req, res) => {
     return res.status(200).json({
       success: true,
       data: result,
-      totalAmount: totalAmount,
+      totalAmount,
       total: count,
       pageIndex,
       pageSize,
@@ -326,6 +466,69 @@ paymentZalo.get("/", async (req, res) => {
   } catch (err) {
     return res.status(500).json({
       success: false,
+      message: "Lỗi server",
+      error: err.message,
+    });
+  }
+});
+
+paymentZalo.get("/daily-total", async (req, res) => {
+  const { StartDate, EndDate } = req.query;
+
+  if (!StartDate || !EndDate) {
+    return res.status(400).json({
+      success: false,
+      message: "Vui lòng truyền StartDate và EndDate",
+    });
+  }
+
+  const start = moment(StartDate, "YYYY-MM-DD");
+  const end = moment(EndDate, "YYYY-MM-DD");
+
+  if (!start.isValid() || !end.isValid()) {
+    return res.status(400).json({
+      success: false,
+      message: "Định dạng ngày không hợp lệ. Định dạng hợp lệ: YYYY-MM-DD",
+    });
+  }
+
+  // const dates = [];
+  const totals = [];
+
+  let totalAmountInRange = 0;
+
+  try {
+    const { data: allPayments, error } = await supabase
+      .from("Payments")
+      .select("TotalAmount, CreatedAt")
+      .gte("CreatedAt", start.startOf("day").toISOString())
+      .lte("CreatedAt", end.endOf("day").toISOString())
+      .eq("Status", "Success");
+
+    if (error) throw error;
+
+    const paymentsByDate = {};
+
+    allPayments.forEach((payment) => {
+      const date = moment(payment.CreatedAt).format("YYYY-MM-DD");
+      paymentsByDate[date] = (paymentsByDate[date] || 0) + payment.TotalAmount;
+      totalAmountInRange += payment.TotalAmount;
+    });
+
+    for (let m = start.clone(); m.isSameOrBefore(end); m.add(1, "day")) {
+      const dateStr = m.format("YYYY-MM-DD");
+      totals.push({
+        date: dateStr,
+        totalAmount: paymentsByDate[dateStr] || 0,
+      });
+    }
+
+    return res.status(200).json({
+      data: totals,
+      totalAmountInRange,
+    });
+  } catch (err) {
+    return res.status(500).json({
       message: "Lỗi server",
       error: err.message,
     });
