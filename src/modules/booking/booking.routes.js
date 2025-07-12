@@ -16,4 +16,11 @@ bookingRouter.post(
   bookingController.updateBookingStatus
 );
 
+bookingRouter.post(
+  "/cancelBooking/:bookingId",
+  bookingController.cancelBooking
+);
+
+bookingRouter.post("/autoCancelBooking", bookingController.autoCancelBookings);
+
 module.exports = bookingRouter;
