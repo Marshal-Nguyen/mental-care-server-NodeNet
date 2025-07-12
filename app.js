@@ -74,7 +74,7 @@ app.use("/api", getChatUser);
 const booking = require("./src/modules/booking/booking.routes");
 app.use("/api", booking);
 //payment
-const pay = require("./src/modules/payment/payment");
+const pay = require("./src/modules/payment/payment.route");
 app.use("/api/payment-zalo", pay);
 
 // In ra danh sách route để test

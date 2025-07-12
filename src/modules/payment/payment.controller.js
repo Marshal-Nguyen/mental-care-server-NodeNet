@@ -1,4 +1,3 @@
-const express = require("express");
 const axios = require("axios");
 const moment = require("moment");
 const CryptoJS = require("crypto-js");
@@ -12,8 +11,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const paymentZalo = express.Router();
-
 const config = {
   app_id: "2553",
   key1: "PcY4iZIKFCIdgZvA6ueMcMHHUbRLYjPL",
@@ -21,7 +18,7 @@ const config = {
   endpoint: "https://sb-openapi.zalopay.vn/v2/create",
 };
 
-paymentZalo.post("/pay-booking", async (req, res) => {
+const paymentZalo = async (req, res) => {
   const { amount, items, patientProfileId } = req.body;
 
   //visa
@@ -81,9 +78,9 @@ paymentZalo.post("/pay-booking", async (req, res) => {
       .status(500)
       .json({ message: "Payment failed", error: error.message });
   }
-});
+};
 
-paymentZalo.post(`/callback`, async (req, res) => {
+const paymentCallback = async (req, res) => {
   let result = {};
 
   try {
@@ -115,7 +112,7 @@ paymentZalo.post(`/callback`, async (req, res) => {
       StartTime: embed.startTime,
       Duration: embed.duration,
       Price: amount,
-      Status: "Confirmed",
+      Status: "Booking Success",
     });
 
     if (bookingErr) {
@@ -153,9 +150,9 @@ paymentZalo.post(`/callback`, async (req, res) => {
   }
 
   return res.json(result);
-});
+};
 
-paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
+const checkPayment = async (req, res) => {
   const { transId } = req.params;
 
   console.log(transId);
@@ -196,155 +193,9 @@ paymentZalo.get("/check-payment-status/:transId", async (req, res) => {
       .status(500)
       .json({ success: false, message: "Lỗi máy chủ", error: err.message });
   }
-});
+};
 
-// paymentZalo.get("/", async (req, res) => {
-//   const {
-//     PageIndex = 1,
-//     PageSize = 10,
-//     SortOrder = "desc",
-//     Status = "Success",
-//     StartDate,
-//     EndDate,
-//     patientId,
-//     Id,
-//   } = req.query;
-
-//   const pageIndex = parseInt(PageIndex);
-//   const pageSize = parseInt(PageSize);
-//   const from = (pageIndex - 1) * pageSize;
-//   const to = from + pageSize - 1;
-
-//   try {
-//     let paymentQuery = supabase
-//       .from("Payments")
-//       .select("*", { count: "exact" })
-//       .order("CreatedAt", { ascending: SortOrder === "asc" })
-//       .range(from, to);
-
-//     if (Status && Status !== "All") {
-//       paymentQuery = paymentQuery.eq("Status", Status);
-//     }
-
-//     if (StartDate) {
-//       paymentQuery = paymentQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
-//     }
-//     if (EndDate) {
-//       paymentQuery = paymentQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
-//     }
-
-//     if (Id) {
-//       paymentQuery = paymentQuery.eq("Id", Id);
-//     }
-
-//     if (patientId) {
-//       paymentQuery = paymentQuery.eq("PatientProfileId", patientId);
-//     }
-
-//     const { data: payments, count, error: paymentErr } = await paymentQuery;
-
-//     if (paymentErr) {
-//       return res.status(500).json({
-//         success: false,
-//         message: "Lỗi lấy dữ liệu thanh toán",
-//         error: paymentErr.message,
-//       });
-//     }
-
-//     const bookingIds = payments.map((p) => p.BookingId).filter(Boolean);
-
-//     const { data: bookings, error: bookingErr } = await supabase
-//       .from("Bookings")
-//       .select("Id, PatientId, DoctorId, BookingCode")
-//       .in("Id", bookingIds);
-
-//     if (bookingErr) throw bookingErr;
-
-//     const patientIds = [...new Set(bookings.map((b) => b.PatientId))];
-
-//     const [{ data: patients }] = await Promise.all([
-//       supabase
-//         .from("PatientProfiles")
-//         .select("Id, FullName")
-//         .in("Id", patientIds),
-//     ]);
-
-//     const paymentIds = payments.map((p) => p.Id);
-//     const { data: paymentDetails, error: paymentDetailErr } = await supabase
-//       .from("PaymentDetails")
-//       .select("PaymentId, ExternalTransactionCode")
-//       .in("PaymentId", paymentIds);
-
-//     if (paymentDetailErr) throw paymentDetailErr;
-
-//     const transactionCodeMap = Object.fromEntries(
-//       paymentDetails.map((d) => [d.PaymentId, d.ExternalTransactionCode])
-//     );
-
-//     let totalQuery = supabase.from("Payments").select("TotalAmount");
-
-//     if (Status && Status !== "All") {
-//       totalQuery = totalQuery.eq("Status", Status);
-//     }
-//     if (StartDate) {
-//       totalQuery = totalQuery.gte("CreatedAt", `${StartDate}T00:00:00`);
-//     }
-//     if (EndDate) {
-//       totalQuery = totalQuery.lte("CreatedAt", `${EndDate}T23:59:59.999`);
-//     }
-//     if (Id) {
-//       totalQuery = totalQuery.eq("Id", Id);
-//     }
-//     if (patientId) {
-//       totalQuery = totalQuery.eq("PatientProfileId", patientId);
-//     }
-
-//     const { data: totalData, error: totalError } = await totalQuery;
-
-//     if (totalError) throw totalError;
-
-//     const totalAmount = totalData.reduce((sum, p) => sum + p.TotalAmount, 0);
-
-//     const bookingsMap = Object.fromEntries(bookings.map((b) => [b.Id, b]));
-//     const patientsMap = Object.fromEntries(
-//       patients.map((p) => [p.Id, p.FullName])
-//     );
-
-//     const result = payments.map((payment) => {
-//       const booking = bookingsMap[payment.BookingId] || {};
-//       const patientName = patientsMap[booking.PatientId] || "N/A";
-
-//       return {
-//         id: payment.Id,
-//         transaction_code: transactionCodeMap[payment.Id] || "N/A",
-//         amount: payment.TotalAmount,
-//         status: payment.Status,
-//         bookingId: payment.BookingId,
-//         bookingCode: booking.BookingCode || "N/A",
-//         createdAt: payment.CreatedAt,
-//         patientName,
-//       };
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       data: result,
-//       totalAmount: totalAmount,
-//       total: count,
-//       pageIndex,
-//       pageSize,
-//       totalPages: Math.ceil(count / pageSize),
-//     });
-//   } catch (err) {
-//     return res.status(500).json({
-//       success: false,
-//       message: "Lỗi server",
-//       error: err.message,
-//     });
-//   }
-// });
-
-paymentZalo.get("/", async (req, res) => {
+const getPayment = async (req, res) => {
   const {
     PageIndex = 1,
     PageSize = 10,
@@ -470,9 +321,9 @@ paymentZalo.get("/", async (req, res) => {
       error: err.message,
     });
   }
-});
+};
 
-paymentZalo.get("/daily-total", async (req, res) => {
+const getDailyTotal = async (req, res) => {
   const { StartDate, EndDate } = req.query;
 
   if (!StartDate || !EndDate) {
@@ -539,6 +390,12 @@ paymentZalo.get("/daily-total", async (req, res) => {
       error: err.message,
     });
   }
-});
+};
 
-module.exports = paymentZalo;
+module.exports = {
+  getDailyTotal,
+  getPayment,
+  checkPayment,
+  paymentCallback,
+  paymentZalo,
+};
