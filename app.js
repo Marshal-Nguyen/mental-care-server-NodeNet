@@ -29,7 +29,30 @@ app.use("/api", signUpPatientRoute);
 
 const oauthLoginPatientRoute = require("./src/modules/Auth/Patient/routes/oauthLoginPatient");
 app.use("/api", oauthLoginPatientRoute);
+// Daily emotion
+const emotionRoute = require("./src/modules/Intro/emotions/routes/apiForEmotion");
+app.use("/api", emotionRoute);
+// Entertainment
+const entertainmentRoute = require("./src/modules/Intro/entertaiment/routes/apiForEntertaiment");
+app.use("/api", entertainmentRoute);
+// Food
+const foodRoute = require("./src/modules/Intro/food/routes/apiForFood");
+app.use("/api", foodRoute);
+// Therapeutic
+const therapeuticRoute = require("./src/modules/Intro/therapeutic/routes/apiForTherapeutic");
+app.use("/api", therapeuticRoute);
+// Physical
+const physicalRoute = require("./src/modules/Intro/physical/routes/apiForPhysical");
+app.use("/api", physicalRoute);
+// Improvement
+const improvementRoute = require("./src/modules/Intro/improvement/routes/apiForImprovement");
+app.use("/api", improvementRoute);
+// Life style
+const lifeStyleRoute = require("./src/modules/Intro/lifestyle-logs/routes/apiForLifeStyle");
+app.use("/api", lifeStyleRoute);
 // Test route
+const recommendAI = require("./src/modules/test/routes/dataForRecommentAI");
+app.use("/api", recommendAI);
 const testRoutes = require("./src/modules/test/routes/getQuestionTest");
 app.use("/api", testRoutes);
 // Doctor profile
