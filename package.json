@@ -11,6 +11,7 @@
     "prisma": "prisma"
   },
   "dependencies": {
+    "@google/genai": "^1.9.0",
     "@prisma/client": "^6.9.0",
     "@supabase/supabase-js": "^2.49.10",
     "axios": "^1.10.0",
@@ -40,5 +41,10 @@
     "nodemon": "^3.1.10",
     "prettier": "^3.2.5",
     "prisma": "^6.8.2"
-  }
+  },
+  "description": "✅ 1. Mục tiêu kiến trúc",
+  "main": "app.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

@@ -50,6 +50,15 @@ app.use("/api", improvementRoute);
 // Life style
 const lifeStyleRoute = require("./src/modules/Intro/lifestyle-logs/routes/apiForLifeStyle");
 app.use("/api", lifeStyleRoute);
+// Chat sessions
+const chatSessions = require("./src/modules/chat/routes/chatSessions");
+app.use("/api", chatSessions);
+// Chat messages
+const chatMessages = require("./src/modules/chat/routes/chatMessages");
+app.use("/api", chatMessages);
+// Chat with Emo
+const chatWithEmo = require("./src/modules/chat/routes/chatWithEmo");
+app.use("/api", chatWithEmo);
 // Test route
 const recommendAI = require("./src/modules/test/routes/dataForRecommentAI");
 app.use("/api", recommendAI);
