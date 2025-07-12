@@ -7,8 +7,6 @@ const supabase = createClient(
 );
 
 const createBooking = async (req, res) => {
-  console.log(req.body);
-
   try {
     const {
       doctorId,
@@ -27,7 +25,7 @@ const createBooking = async (req, res) => {
       .eq("DoctorId", doctorId)
       .eq("Date", date)
       .eq("StartTime", startTime)
-      .in("Status", ["Pending", "Confirmed"]);
+      .in("Status", "Booking Success");
 
     if (fetchError) throw fetchError;
     if (existingBookings.length > 0) {
@@ -50,7 +48,7 @@ const createBooking = async (req, res) => {
         Price: price,
         PromoCodeId: promoCodeId || null,
         GiftCodeId: giftCodeId || null,
-        Status: "Confirmed",
+        Status: "Booking Success",
       },
     ]);
 
@@ -116,7 +114,6 @@ const getBookings = async (req, res) => {
       query = query.eq("PatientId", patientId);
     }
 
-    // Tìm kiếm theo BookingCode (nếu có)
     if (Search) {
       query = query.ilike("BookingCode", `%${Search}%`);
     }
@@ -150,7 +147,6 @@ const getBookings = async (req, res) => {
         .in("Id", patientIds),
     ]);
 
-    // Tạo map để dễ tra cứu
     const doctorMap = Object.fromEntries(
       doctors.map((d) => [d.Id, d.FullName])
     );
@@ -179,11 +175,12 @@ const getBookings = async (req, res) => {
 
       totalCount: count,
       statusSummary: {
-        totalConfirmed: statusSummary["Confirmed"] || 0,
-        totalWaiting: statusSummary["Waiting"] || 0,
-        totalPending: statusSummary["Pending"] || 0,
-        totalCancelled: statusSummary["Cancelled"] || 0,
-        totalCompleted: statusSummary["Completed"] || 0,
+        statusSummary: {
+          totalBookingSuccess: statusSummary["Booking Success"] || 0,
+          totalCheckIn: statusSummary["CheckIn"] || 0,
+          totalCheckOut: statusSummary["CheckOut"] || 0,
+          totalCancelled: statusSummary["Cancelled"] || 0,
+        },
       },
       pageIndex,
       pageSize,
@@ -239,4 +236,160 @@ const updateBookingStatus = async (req, res) => {
   }
 };
 
-module.exports = { createBooking, getBookings, updateBookingStatus };
+const cancelBooking = async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return res.status(400).json({
+      success: false,
+      message: "Thiếu bookingId",
+    });
+  }
+
+  try {
+    const { data: booking, error: bookingError } = await supabase
+      .from("Bookings")
+      .select("Id, Date, StartTime")
+      .eq("Id", bookingId)
+      .single();
+
+    if (bookingError || !booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy booking",
+      });
+    }
+
+    const { data: payment, error: paymentError } = await supabase
+      .from("Payments")
+      .select("Id, TotalAmount")
+      .eq("BookingId", booking.Id)
+      .maybeSingle();
+
+    const scheduleDate = new Date(booking.Date);
+    const [hours, minutes, seconds] = booking.StartTime.split(":").map(Number);
+    scheduleDate.setHours(hours, minutes, seconds || 0);
+
+    const now = new Date();
+
+    const diffInHours = (scheduleDate - now) / (1000 * 60 * 60);
+
+    const { data: updatedBooking, error: updateBookingError } = await supabase
+      .from("Bookings")
+      .update({ Status: "Cancelled" })
+      .eq("Id", bookingId)
+      .select()
+      .single();
+
+    if (updateBookingError) {
+      return res.status(500).json({
+        success: false,
+        message: "Không thể cập nhật trạng thái booking",
+        error: updateBookingError.message,
+      });
+    }
+
+    let updatedPrice = false;
+
+    if (diffInHours >= 24 && payment?.Id) {
+      const { error: updatePaymentError } = await supabase
+        .from("Payments")
+        .update({ TotalAmount: 100000 })
+        .eq("Id", payment.Id);
+
+      if (updatePaymentError) {
+        return res.status(500).json({
+          success: false,
+          message: "Huỷ thành công nhưng lỗi khi cập nhật tiền",
+          error: updatePaymentError.message,
+        });
+      }
+
+      updatedPrice = true;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: updatedPrice
+        ? "Đã huỷ và bạn sẽ nhận được tiền hoàn sau 2 ngày (trước 1 ngày)"
+        : "Đã huỷ (do huỷ trễ hơn 1 ngày, không hoàn tiền)",
+      updatedBooking,
+      updatedPrice,
+      newAmount: updatedPrice ? 100000 : null,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi máy chủ",
+      error: err.message,
+    });
+  }
+};
+
+const autoCancelBookings = async (req, res) => {
+  try {
+    const now = new Date();
+    const toCancel = [];
+
+    const { data: bookings, error } = await supabase
+      .from("Bookings")
+      .select("Id, Date, StartTime, Status")
+      .eq("Status", "Booking Success");
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi khi lấy danh sách booking",
+        error: error.message,
+      });
+    }
+
+    for (const booking of bookings) {
+      const scheduleTime = new Date(booking.Date);
+      const [hours, minutes, seconds] =
+        booking.StartTime.split(":").map(Number);
+      scheduleTime.setHours(hours, minutes, seconds || 0);
+
+      const diffInMinutes = (now - scheduleTime) / (1000 * 60);
+
+      if (diffInMinutes >= 15) {
+        toCancel.push(booking.Id);
+      }
+    }
+
+    if (toCancel.length > 0) {
+      const { error: updateError } = await supabase
+        .from("Bookings")
+        .update({ Status: "Cancelled" })
+        .in("Id", toCancel);
+
+      if (updateError) {
+        return res.status(500).json({
+          success: false,
+          message: "Lỗi khi huỷ booking",
+          error: updateError.message,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `${toCancel.length} booking đã bị huỷ tự động.`,
+      cancelledIds: toCancel,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server",
+      error: err.message,
+    });
+  }
+};
+
+module.exports = {
+  createBooking,
+  getBookings,
+  updateBookingStatus,
+  cancelBooking,
+  autoCancelBookings,
+};
