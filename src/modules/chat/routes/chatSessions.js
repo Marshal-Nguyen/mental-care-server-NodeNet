@@ -1,17 +1,16 @@
 const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI } = require("@google/genai");
+const NodeCache = require("node-cache");
 const router = express.Router();
 
 require("dotenv").config();
 
-// Khởi tạo Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Khởi tạo GoogleGenAI
 const ai = new GoogleGenAI({
   vertexai: true,
   project: process.env.GOOGLE_CLOUD_PROJECT || "379308644495",
@@ -20,7 +19,6 @@ const ai = new GoogleGenAI({
 const model =
   "projects/379308644495/locations/us-central1/endpoints/7375379963098169344";
 
-// Cấu hình generation
 const generationConfig = {
   maxOutputTokens: 8192,
   temperature: 1,
@@ -33,10 +31,19 @@ const generationConfig = {
   ],
 };
 
-// Middleware xác thực
+const authCache = new NodeCache({ stdTTL: 900 }); // Cache 15 phút
+const responseCache = new NodeCache({ stdTTL: 3600 }); // Cache 1 giờ
+
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+  const cacheKey = `auth_${token}`;
+  const cachedUser = authCache.get(cacheKey);
+  if (cachedUser) {
+    req.patientId = cachedUser.patientId;
+    return next();
+  }
 
   const {
     data: { user },
@@ -46,7 +53,6 @@ const authenticate = async (req, res, next) => {
     console.error("Auth error:", error);
     return res.status(401).json({ error: "Invalid token" });
   }
-  console.log("User from token:", user);
 
   const { data: patient } = await supabase
     .from("PatientProfiles")
@@ -59,39 +65,35 @@ const authenticate = async (req, res, next) => {
   }
 
   req.patientId = patient.Id;
+  authCache.set(cacheKey, { patientId: patient.Id });
   next();
 };
 
-// Hàm xử lý chat với Emo
 async function chatWithEmo(prompt) {
+  const cacheKey = `emo_response_${prompt.substring(0, 50)}`;
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse) return cachedResponse;
+
   const req = {
     model: model,
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: prompt }],
-      },
-    ],
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: generationConfig,
   };
 
   try {
     const streamingResp = await ai.models.generateContentStream(req);
     let fullResponse = "";
-
     for await (const chunk of streamingResp) {
-      if (chunk.text) {
-        fullResponse += chunk.text;
-      }
+      if (chunk.text) fullResponse += chunk.text;
     }
+    responseCache.set(cacheKey, fullResponse);
     return fullResponse;
   } catch (error) {
     console.error("Error in chatWithEmo:", error);
-    throw error; // Ném lỗi để xử lý ở cấp cao hơn
+    throw error;
   }
 }
 
-// API: Lấy danh sách phiên
 router.get("/sessions", authenticate, async (req, res) => {
   const pageIndex = parseInt(req.query.PageIndex) || 1;
   const pageSize = parseInt(req.query.PageSize) || 10;
@@ -108,32 +110,38 @@ router.get("/sessions", authenticate, async (req, res) => {
   res.json({ data, pageIndex, pageSize, totalCount: data.length });
 });
 
-// API: Tạo phiên mới
 router.post("/sessions", authenticate, async (req, res) => {
   const { sessionName } = req.query;
 
   try {
-    // Lấy thông tin bệnh nhân
-    const { data: patient, error: patientError } = await supabase
-      .from("PatientProfiles")
-      .select("FullName")
-      .eq("Id", req.patientId)
-      .single();
-    if (patientError) throw patientError;
+    const [patientResult, sessionResult] = await Promise.all([
+      supabase
+        .from("PatientProfiles")
+        .select("FullName")
+        .eq("Id", req.patientId)
+        .single(),
+      supabase
+        .from("ChatSessions")
+        .insert({
+          PatientId: req.patientId,
+          Name: sessionName || "Your Zen Companion",
+        })
+        .select()
+        .single(),
+    ]);
+
+    if (patientResult.error) throw patientResult.error;
+    if (sessionResult.error) throw sessionResult.error;
+
+    const { data: patient } = patientResult;
+    const { data: sessionData } = sessionResult;
     const fullName = patient.FullName;
 
-    // Tạo phiên trong ChatSessions
-    const { data: sessionData, error: sessionError } = await supabase
-      .from("ChatSessions")
-      .insert({
-        PatientId: req.patientId,
-        Name: sessionName || "Your Zen Companion",
-      })
-      .select()
-      .single();
-    if (sessionError) throw sessionError;
-
-    // Tạo tin nhắn khởi tạo từ AI
+    // Sử dụng cache hoặc tin nhắn mặc định để giảm độ trễ
+    const cacheKey = fullName
+      ? `emo_welcome_${fullName}`
+      : "emo_welcome_default";
+    let aiResponse = responseCache.get(cacheKey);
     const systemInstruction = `
       Bạn là Emo – người bạn đồng hành, nhẹ nhàng và tinh tế.
       Phản hồi theo phong cách chữa lành (healing).
@@ -147,25 +155,29 @@ router.post("/sessions", authenticate, async (req, res) => {
       - Nếu người dùng đồng ý với gợi ý, tiếp tục giúp họ triển khai – không hỏi lại.
       - Luôn cá nhân hóa phản hồi dựa trên thông tin người dùng (persona) nếu có, như tên hoặc bối cảnh.
     `;
+    if (!aiResponse) {
+      const welcomePrompt = fullName
+        ? `${systemInstruction}\n\nChào ${fullName}, đây là tin nhắn khởi tạo từ Emo. Hãy gửi một lời chào hoặc chia sẻ cảm xúc đầu tiên của bạn!`
+        : `${systemInstruction}\n\nChào bạn, đây là tin nhắn khởi tạo từ Emo. Hãy gửi một lời chào hoặc chia sẻ cảm xúc đầu tiên của bạn!`;
+      aiResponse = await chatWithEmo(welcomePrompt);
+      responseCache.set(cacheKey, aiResponse, 3600); // Cache 1 giờ
+    }
 
-    const welcomePrompt = fullName
-      ? `${systemInstruction}\n\nChào ${fullName}, đây là tin nhắn khởi tạo từ Emo. Hãy gửi một lời chào hoặc chia sẻ cảm xúc đầu tiên của bạn!`
-      : `${systemInstruction}\n\nChào bạn, đây là tin nhắn khởi tạo từ Emo. Hãy gửi một lời chào hoặc chia sẻ cảm xúc đầu tiên của bạn!`;
-    const aiResponse = await chatWithEmo(welcomePrompt);
+    const [messageResult] = await Promise.all([
+      supabase
+        .from("ChatMessages")
+        .insert({
+          SessionId: sessionData.Id,
+          SenderIsEmo: true,
+          Content: aiResponse,
+        })
+        .select()
+        .single(),
+    ]);
 
-    // Lưu tin nhắn khởi tạo vào ChatMessages
-    const { data: initialMessageData, error: messageError } = await supabase
-      .from("ChatMessages")
-      .insert({
-        SessionId: sessionData.Id,
-        SenderIsEmo: true,
-        Content: aiResponse,
-      })
-      .select()
-      .single();
-    if (messageError) throw messageError;
+    if (messageResult.error) throw messageResult.error;
+    const { data: initialMessageData } = messageResult;
 
-    // Trả về định dạng mong muốn của FE
     res.json({
       id: sessionData.Id,
       name: sessionData.Name,
@@ -188,7 +200,6 @@ router.post("/sessions", authenticate, async (req, res) => {
   }
 });
 
-// API: Xóa phiên
 router.delete("/sessions/:sessionId", authenticate, async (req, res) => {
   const { sessionId } = req.params;
   const { error } = await supabase
