@@ -1,11 +1,8 @@
 const medicalRecordService = require('./medicalRecordService');
 
 exports.createMedicalRecord = async (req, res) => {
-    const { patientProfileId, medicalHistoryId, status, createdBy, lastModifiedBy } = req.body;
-    const doctorProfileId = req.body.doctorProfileId; // Lấy từ body thay vì req.user
-    if (!doctorProfileId) return res.status(400).json({ error: 'doctorProfileId is required' });
     try {
-        const result = await medicalRecordService.createMedicalRecord({ patientProfileId, doctorProfileId, medicalHistoryId, status, createdBy, lastModifiedBy });
+        const result = await medicalRecordService.createMedicalRecord(req.body);
         res.status(201).json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -13,21 +10,35 @@ exports.createMedicalRecord = async (req, res) => {
 };
 
 exports.getMedicalRecord = async (req, res) => {
-    const { id } = req.params;
     try {
-        const result = await medicalRecordService.getMedicalRecord(id);
+        const result = await medicalRecordService.getMedicalRecord(req.params.id);
         res.status(200).json(result);
     } catch (error) {
-        res.status(404).json({ error: error.message });
+        res.status(400).json({ error: error.message });
+    }
+};
+
+exports.getMedicalRecordsByPatientId = async (req, res) => {
+    try {
+        const result = await medicalRecordService.getMedicalRecordsByPatientId(req.params.patientId);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
 };
 
 exports.updateMedicalRecord = async (req, res) => {
-    const { id } = req.params;
-    const { patientProfileId, doctorProfileId, medicalHistoryId, status, lastModifiedBy } = req.body;
-    if (!doctorProfileId) return res.status(400).json({ error: 'doctorProfileId is required' });
     try {
-        const result = await medicalRecordService.updateMedicalRecord(id, { patientProfileId, doctorProfileId, medicalHistoryId, status, lastModifiedBy });
+        const result = await medicalRecordService.updateMedicalRecord(req.params.id, req.body);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
+exports.updateMedicalRecordsByPatientId = async (req, res) => {
+    try {
+        const result = await medicalRecordService.updateMedicalRecordsByPatientId(req.params.patientId, req.body);
         res.status(200).json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -35,11 +46,10 @@ exports.updateMedicalRecord = async (req, res) => {
 };
 
 exports.deleteMedicalRecord = async (req, res) => {
-    const { id } = req.params;
     try {
-        await medicalRecordService.deleteMedicalRecord(id);
+        await medicalRecordService.deleteMedicalRecord(req.params.id);
         res.status(204).send();
     } catch (error) {
-        res.status(404).json({ error: error.message });
+        res.status(400).json({ error: error.message });
     }
 };

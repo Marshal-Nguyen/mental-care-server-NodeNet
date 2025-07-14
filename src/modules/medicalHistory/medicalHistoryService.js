@@ -309,4 +309,4 @@ exports.deleteMedicalHistory = async (Id) => {
     // Xóa bản ghi MedicalHistories
     const { error } = await supabase.from('MedicalHistories').delete().eq('Id', Id);
     if (error) throw new Error(error.message);
-};
+};  
