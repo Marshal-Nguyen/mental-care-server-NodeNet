@@ -76,6 +76,13 @@ app.use("/api", booking);
 //payment
 const pay = require("./src/modules/payment/payment.route");
 app.use("/api/payment-zalo", pay);
+// Medical Record
+const medicalRecordRouter = require("./src/modules/medicalRecord/medicalRecordRouter");
+app.use("/api/medical-records", medicalRecordRouter);
+// Medical History
+const medicalHistoryRouter = require("./src/modules/medicalHistory/medicalHistoryRouter");
+app.use("/api", medicalHistoryRouter);
+
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
