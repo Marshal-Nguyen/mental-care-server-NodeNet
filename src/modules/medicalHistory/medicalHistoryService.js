@@ -3,10 +3,10 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms = [], specificMentalDisorders = [] }) => {
     const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
-    if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
+    if (!cleanedDiagnosedAt) throw new Error("diagnosedAt là bắt buộc");
     const [year, month, day] = cleanedDiagnosedAt.split('-');
     const diagnosedAtDate = new Date(year, month - 1, day);
-    if (isNaN(diagnosedAtDate.getTime())) throw new Error("Invalid diagnosedAt date (expected yyyy-mm-dd)");
+    if (isNaN(diagnosedAtDate.getTime())) throw new Error("Ngày diagnosedAt không hợp lệ (yêu cầu yyyy-mm-dd)");
 
     const { data: historyData, error: historyError } = await supabase
         .from('MedicalHistories')
@@ -23,6 +23,13 @@ exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, cre
     if (historyError) throw new Error(historyError.message);
 
     const historyId = historyData[0].Id;
+
+    // Cập nhật MedicalHistoryId trong PatientProfiles
+    const { error: profileError } = await supabase
+        .from('PatientProfiles')
+        .update({ MedicalHistoryId: historyId })
+        .eq('Id', patientId);
+    if (profileError) throw new Error(profileError.message);
 
     // Thêm PhysicalSymptoms
     if (physicalSymptoms && Array.isArray(physicalSymptoms) && physicalSymptoms.length > 0) {
@@ -67,6 +74,7 @@ exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, cre
             }
         }
     }
+
     return await this.getMedicalHistory(historyId);
 };
 

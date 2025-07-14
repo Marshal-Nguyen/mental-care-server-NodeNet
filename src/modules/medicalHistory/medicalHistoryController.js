@@ -2,7 +2,6 @@ const medicalHistoryService = require('./medicalHistoryService');
 
 exports.createMedicalHistory = async (req, res) => {
     const { patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms, specificMentalDisorders } = req.body;
-    console.log('Request body:', req.body);
     if (!patientId) return res.status(400).json({ error: 'patientId is required' });
     try {
         const result = await medicalHistoryService.createMedicalHistory({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms, specificMentalDisorders });
