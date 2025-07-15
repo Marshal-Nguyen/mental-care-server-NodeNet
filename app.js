@@ -8,7 +8,11 @@ require("dotenv").config();
 // Cấu hình CORS
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://emoeaseai-ruby.vercel.app"],
+    origin: [
+      "http://localhost:5173",
+      "https://emoeaseai-ruby.vercel.app",
+      "http://localhost:8081",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],

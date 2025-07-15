@@ -9,10 +9,10 @@ const supabase = createClient(
 );
 
 router.post("/auth/login", async (req, res) => {
-  const { email, password } = req.body;
+  const { email: inputEmail, password } = req.body; // Đổi tên biến email thành inputEmail
 
   // Validate input
-  if (!email?.trim()) {
+  if (!inputEmail?.trim()) {
     return res.status(400).json({ message: "Email không được để trống" });
   }
   if (!password) {
@@ -23,7 +23,7 @@ router.post("/auth/login", async (req, res) => {
     // Authenticate with Supabase
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: inputEmail.trim(), // Sử dụng inputEmail
         password: password,
       });
 
@@ -35,12 +35,13 @@ router.post("/auth/login", async (req, res) => {
 
     console.log("Authenticated user ID:", userId);
 
-    // Lấy profileId từ PatientProfiles
+    // Lấy profileId, IsProfileCompleted và Email từ PatientProfiles
     const { data: patientData, error: patientError } = await supabase
       .from("PatientProfiles")
-      .select("Id")
+      .select("Id, IsProfileCompleted, Email, FullName, PhoneNumber")
       .eq("UserId", userId)
       .single();
+
     console.log("Patient profile data:", patientData);
     if (patientError || !patientData) {
       console.error("Patient profile error:", patientError);
@@ -50,9 +51,12 @@ router.post("/auth/login", async (req, res) => {
       });
     }
 
-    const role = "User"; // Gán trực tiếp role
+    const role = "User";
     const profileId = patientData.Id;
-
+    const isProfileCompleted = patientData.IsProfileCompleted || false;
+    const email = patientData.Email; // Bây giờ không còn xung đột
+    const fullName = patientData.FullName;
+    const phoneNumber = patientData.PhoneNumber;
     return res.json({
       message: "Đăng nhập thành công",
       token: access_token,
@@ -60,6 +64,10 @@ router.post("/auth/login", async (req, res) => {
       role,
       user_id: userId,
       profileId,
+      isProfileCompleted,
+      email,
+      fullName,
+      phoneNumber,
     });
   } catch (err) {
     console.error("Login error:", err);

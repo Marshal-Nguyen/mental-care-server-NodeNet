@@ -171,6 +171,7 @@ router.get("/tests/:testId/questions", requireUser, async (req, res) => {
 });
 
 // POST: submit kết quả test
+// POST: submit kết quả test
 router.post("/tests/test-results", requireUser, async (req, res) => {
   const { patientId, testId, selectedOptionIds } = req.body;
 
@@ -212,41 +213,72 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       }
     });
 
-    // Lấy thông tin bệnh nhân từ API
-    const profileResponse = await axios.get(
-      `http://localhost:3000/api/patient-profiles/${patientId}`
-    );
-    const profile = profileResponse.data;
-    const patientName = profile.FullName;
-    const birthDate = profile.BirthDate;
-    const patientAge = calculateAge(birthDate);
+    // Lấy thông tin bệnh nhân với xử lý lỗi
+    let profile = {};
+    let patientName = "Unknown";
+    let birthDate = null;
+    let patientAge = 0;
 
-    // Lấy JobTitle và IndustryName
-    const jobResponse = await axios.get(
-      `http://localhost:3000/api/patient-job-info/${patientId}`
-    );
-    const jobInfo = jobResponse.data;
-    const jobTitle = jobInfo.JobTitle;
-    const industryName = jobInfo.IndustryName;
+    try {
+      const profileResponse = await axios.get(
+        `http://localhost:3000/api/patient-profiles/${patientId}`
+      );
+      profile = profileResponse.data || {};
+      patientName = profile.FullName || "Unknown";
+      birthDate = profile.BirthDate || null;
+      patientAge = birthDate ? calculateAge(birthDate) : 0;
+    } catch (error) {
+      console.warn("Failed to fetch patient profile:", error.message);
+    }
 
-    // Lấy ImprovementGoals và EmotionSelections
-    const improvementResponse = await axios.get(
-      `http://localhost:3000/api/patient-improvement/${patientId}`
-    );
-    const improvementGoals = improvementResponse.data || [];
+    // Lấy JobTitle và IndustryName với xử lý lỗi
+    let jobTitle = "Unknown";
+    let industryName = "Unknown";
 
-    const emotionResponse = await axios.get(
-      `http://localhost:3000/api/patient-emotions/${patientId}`
-    );
-    const emotionSelections = Array.isArray(emotionResponse.data)
-      ? emotionResponse.data
-      : [];
+    try {
+      const jobResponse = await axios.get(
+        `http://localhost:3000/api/patient-job-info/${patientId}`
+      );
+      const jobInfo = jobResponse.data || {};
+      jobTitle = jobInfo.JobTitle || "Unknown";
+      industryName = jobInfo.IndustryName || "Unknown";
+    } catch (error) {
+      console.warn("Failed to fetch patient job info:", error.message);
+    }
+
+    // Lấy ImprovementGoals với xử lý lỗi
+    let improvementGoals = [];
+
+    try {
+      const improvementResponse = await axios.get(
+        `http://localhost:3000/api/patient-improvement/${patientId}`
+      );
+      improvementGoals = Array.isArray(improvementResponse.data) 
+        ? improvementResponse.data 
+        : [];
+    } catch (error) {
+      console.warn("Failed to fetch patient improvement goals:", error.message);
+    }
+
+    // Lấy EmotionSelections với xử lý lỗi
+    let emotionSelections = [];
+
+    try {
+      const emotionResponse = await axios.get(
+        `http://localhost:3000/api/patient-emotions/${patientId}`
+      );
+      emotionSelections = Array.isArray(emotionResponse.data)
+        ? emotionResponse.data
+        : [];
+    } catch (error) {
+      console.warn("Failed to fetch patient emotions:", error.message);
+    }
 
     // Tính tổng điểm để xác định SeverityLevel
     const totalScore = score.Depression + score.Anxiety + score.Stress;
     const severityLevel = determineSeverity(totalScore);
 
-    // Xây dựng payload cho API Gemini
+    // Xây dựng payload cho API Gemini với dữ liệu an toàn
     const geminiPayload = {
       contents: [
         {
@@ -259,12 +291,12 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
                 score.Stress,
                 {
                   FullName: patientName,
-                  Gender: profile.Gender,
-                  BirthDate: birthDate,
+                  Gender: profile.Gender || "Unknown",
+                  BirthDate: birthDate || "Unknown",
                   JobTitle: jobTitle,
                   EducationLevel: profile.EducationLevel || "Unknown",
                   IndustryName: industryName,
-                  PersonalityTraits: profile.PersonalityTraits,
+                  PersonalityTraits: profile.PersonalityTraits || "Unknown",
                   Allergies: profile.Allergies || "Không rõ",
                 },
                 {
@@ -313,23 +345,31 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       },
     };
 
-    // Gọi API Gemini thật sự
-    const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`;
-    const geminiResponse = await axios.post(url, geminiPayload, {
-      headers: { "Content-Type": "application/json" },
-    });
+    // Gọi API Gemini với xử lý lỗi
+    let recommendation = { raw: "Không thể tạo gợi ý do lỗi hệ thống" };
 
-    const responseText =
-      geminiResponse.data.candidates[0].content.parts[0].text;
-
-    // Nếu Gemini trả về JSON thì parse, nếu không thì lưu plain text
-    let recommendation;
     try {
-      recommendation = JSON.parse(responseText);
-    } catch (e) {
-      console.warn("Gemini response is not valid JSON, lưu plain text.");
-      recommendation = { raw: responseText };
+      const apiKey = process.env.GEMINI_API_KEY;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`;
+      
+      const geminiResponse = await axios.post(url, geminiPayload, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 30000, // 30 seconds timeout
+      });
+
+      const responseText = geminiResponse.data.candidates[0].content.parts[0].text;
+
+      try {
+        recommendation = JSON.parse(responseText);
+      } catch (parseError) {
+        console.warn("Gemini response is not valid JSON, saving as raw text.");
+        recommendation = { raw: responseText };
+      }
+    } catch (geminiError) {
+      console.error("Failed to call Gemini API:", geminiError.message);
+      recommendation = { 
+        raw: "Tạm thời không thể tạo gợi ý cá nhân hóa. Vui lòng thử lại sau." 
+      };
     }
 
     // Tạo bản ghi TestResult
@@ -387,6 +427,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
         recommendation: recommendation,
         patientName: patientName,
         patientAge: patientAge,
+     
       },
     });
   } catch (err) {
