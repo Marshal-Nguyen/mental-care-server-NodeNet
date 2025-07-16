@@ -157,6 +157,46 @@ exports.getMedicalRecordsByPatientId = async (patientId) => {
     }));
 };
 
+exports.getMedicalRecordsByDoctorId = async (doctorId) => {
+    const { data: records, error: recordError } = await supabase
+        .from('MedicalRecords')
+        .select('*')
+        .eq('DoctorId', doctorId);
+    if (recordError) throw new Error(`Fetch records error: ${recordError.message}`);
+
+    const recordIds = records.map(r => r.Id);
+    let allLinks = [];
+    if (recordIds.length > 0) {
+        const { data: links, error: linkError } = await supabase
+            .from('MedicalRecordSpecificMentalDisorder')
+            .select('MedicalRecordsId, SpecificMentalDisordersId')
+            .in('MedicalRecordsId', recordIds);
+        if (linkError) throw new Error(`Fetch links error: ${linkError.message}`);
+        allLinks = links || [];
+    }
+
+    const mentalDisorderIds = [...new Set(allLinks.map(link => link.SpecificMentalDisordersId))];
+    let mentalDisorders = [];
+    if (mentalDisorderIds.length > 0) {
+        const { data: mentalData, error: mentalError } = await supabase
+            .from('MentalDisorders')
+            .select('*')
+            .in('Id', mentalDisorderIds);
+        if (mentalError) throw new Error(`Fetch mental disorders error: ${mentalError.message}`);
+        mentalDisorders = mentalData || [];
+    }
+
+    return records.map(record => ({
+        ...record,
+        MedicalRecordSpecificMentalDisorder: allLinks
+            .filter(link => link.MedicalRecordsId === record.Id)
+            .map(link => ({
+                SpecificMentalDisordersId: link.SpecificMentalDisordersId,
+                MentalDisorders: mentalDisorders.find(md => md.Id === link.SpecificMentalDisordersId) || null
+            }))
+    }));
+};
+
 exports.updateMedicalRecord = async (Id, { patientId, doctorId, bookingId, description, diagnosedAt, lastModifiedBy, mentalDisorders }) => {
     const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
     if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
@@ -179,10 +219,10 @@ exports.updateMedicalRecord = async (Id, { patientId, doctorId, bookingId, descr
     if (recordError) throw new Error(`Update record error: ${recordError.message}`);
 
     if (mentalDisorders && Array.isArray(mentalDisorders) && mentalDisorders.length > 0) {
-        // Xóa các liên kết cũ
+        // Delete old links
         await supabase.from('MedicalRecordSpecificMentalDisorder').delete().eq('MedicalRecordsId', Id);
 
-        // Chèn các rối loạn tâm thần mới
+        // Insert new mental disorders
         const mentalInserts = mentalDisorders.map(disorder => ({
             Name: disorder.name || '',
             Description: disorder.description || ''
