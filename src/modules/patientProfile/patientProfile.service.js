@@ -12,7 +12,20 @@ exports.getAllPatientProfiles = async (pageIndex = 1, pageSize = 10, sortBy = 'F
 
     const { data, error: dataError, count } = await supabase
         .from('PatientProfiles')
-        .select('*', { count: 'exact' })
+        .select(`
+            *,
+            MedicalHistories (
+                *,
+                MedicalHistorySpecificMentalDisorder (
+                    *,
+                    MentalDisorders (*)
+                ),
+                MedicalHistoryPhysicalSymptom (
+                    *,
+                    PhysicalSymptoms (*)
+                )
+            )
+        `, { count: 'exact' })
         .order(sortField, { ascending: order === 'asc' })
         .range(start, end);
 
@@ -41,7 +54,20 @@ exports.searchPatientProfilesByName = async (fullName = '', pageIndex = 1, pageS
 
     const query = supabase
         .from('PatientProfiles')
-        .select('*', { count: 'exact' })
+        .select(`
+            *,
+            MedicalHistories (
+                *,
+                MedicalHistorySpecificMentalDisorder (
+                    *,
+                    MentalDisorders (*)
+                ),
+                MedicalHistoryPhysicalSymptom (
+                    *,
+                    PhysicalSymptoms (*)
+                )
+            )
+        `, { count: 'exact' })
         .order(sortField, { ascending: order === 'asc' })
         .range(start, end);
 
@@ -68,7 +94,20 @@ exports.searchPatientProfilesByName = async (fullName = '', pageIndex = 1, pageS
 exports.getPatientProfileById = async (id) => {
     const { data, error } = await supabase
         .from('PatientProfiles')
-        .select('*')
+        .select(`
+            *,
+            MedicalHistories (
+                *,
+                MedicalHistorySpecificMentalDisorder (
+                    *,
+                    MentalDisorders (*)
+                ),
+                MedicalHistoryPhysicalSymptom (
+                    *,
+                    PhysicalSymptoms (*)
+                )
+            )
+        `)
         .eq('Id', id)
         .single();
     if (error) throw error;
@@ -151,4 +190,23 @@ exports.getPatientStatistics = async () => {
         genderStats,
         totalCount: totalCount || 0,
     };
+};
+
+exports.getMedicalHistoriesByPatientId = async (patientId) => {
+    const { data, error } = await supabase
+        .from('MedicalHistories')
+        .select(`
+            *,
+            MedicalHistoryPhysicalSymptom (
+                *,
+                PhysicalSymptoms (*)
+            ),
+            MedicalHistorySpecificMentalDisorder (
+                *,
+                MentalDisorders (*)
+            )
+        `)
+        .eq('PatientId', patientId);
+    if (error) throw new Error(error.message);
+    return data;
 };

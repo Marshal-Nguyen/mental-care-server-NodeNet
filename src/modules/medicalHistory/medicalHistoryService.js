@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms = [], specificMentalDisorders = [] }) => {
+exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
     const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
     if (!cleanedDiagnosedAt) throw new Error("diagnosedAt là bắt buộc");
     const [year, month, day] = cleanedDiagnosedAt.split('-');
@@ -53,16 +53,16 @@ exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, cre
         }
     }
 
-    // Thêm SpecificMentalDisorders
-    if (specificMentalDisorders && Array.isArray(specificMentalDisorders) && specificMentalDisorders.length > 0) {
-        const mentalInserts = specificMentalDisorders.map(disorder => ({
+    // Thêm MentalDisorders
+    if (mentalDisorders && Array.isArray(mentalDisorders) && mentalDisorders.length > 0) {
+        const mentalInserts = mentalDisorders.map(disorder => ({
             Name: disorder.name || '',
             Description: disorder.description || '',
         }));
-        const { error: mentalError } = await supabase.from('SpecificMentalDisorders').insert(mentalInserts);
+        const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
         if (mentalError) throw new Error(mentalError.message);
 
-        const mentalData = await supabase.from('SpecificMentalDisorders').select('Id').order('Id', { ascending: false }).limit(specificMentalDisorders.length);
+        const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
         if (mentalData && mentalData.data && mentalData.data.length > 0) {
             const mentalLinks = mentalData.data.map((disorder, index) => ({
                 MedicalHistoriesId: historyId,
@@ -89,7 +89,7 @@ exports.getMedicalHistory = async (Id) => {
       ),
       MedicalHistorySpecificMentalDisorder (
         *,
-        SpecificMentalDisorders (*)
+        MentalDisorders (*)
       )
     `)
         .eq('Id', Id)
@@ -109,7 +109,7 @@ exports.getMedicalHistoriesByPatientId = async (patientId) => {
       ),
       MedicalHistorySpecificMentalDisorder (
         *,
-        SpecificMentalDisorders (*)
+        MentalDisorders (*)
       )
     `)
         .eq('PatientId', patientId);
@@ -117,7 +117,7 @@ exports.getMedicalHistoriesByPatientId = async (patientId) => {
     return data;
 };
 
-exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt, lastModifiedBy, physicalSymptoms, specificMentalDisorders }) => {
+exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt, lastModifiedBy, physicalSymptoms, mentalDisorders }) => {
     const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
     if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
     const diagnosedAtDate = new Date(cleanedDiagnosedAt);
@@ -165,10 +165,10 @@ exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt,
         }
     }
 
-    // Cập nhật SpecificMentalDisorders
-    if (specificMentalDisorders && specificMentalDisorders.length > 0) {
+    // Cập nhật MentalDisorders
+    if (mentalDisorders && mentalDisorders.length > 0) {
         await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
-        const mentalInserts = specificMentalDisorders.map(disorder => ({
+        const mentalInserts = mentalDisorders.map(disorder => ({
             Name: disorder.name,
             Description: disorder.description,
             CreatedAt: new Date(),
@@ -176,10 +176,10 @@ exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt,
             CreatedBy: lastModifiedBy,
             LastModifiedBy: lastModifiedBy
         }));
-        const { error: mentalError } = await supabase.from('SpecificMentalDisorders').insert(mentalInserts);
+        const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
         if (mentalError) throw new Error(mentalError.message);
 
-        const mentalData = await supabase.from('SpecificMentalDisorders').select('Id').order('Id', { ascending: false }).limit(specificMentalDisorders.length);
+        const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
         if (mentalData && mentalData.data && mentalData.data.length > 0) {
             const mentalLinks = mentalData.data.map((disorder, index) => ({
                 MedicalHistoriesId: Id,
@@ -197,7 +197,7 @@ exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt,
     return await this.getMedicalHistory(Id);
 };
 
-exports.updateMedicalHistoriesByPatientId = async (patientId, { description, diagnosedAt, lastModifiedBy, physicalSymptoms, specificMentalDisorders }) => {
+exports.updateMedicalHistoriesByPatientId = async (patientId, { description, diagnosedAt, lastModifiedBy, physicalSymptoms, mentalDisorders }) => {
     const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
     if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
     const diagnosedAtDate = new Date(cleanedDiagnosedAt);
@@ -251,28 +251,28 @@ exports.updateMedicalHistoriesByPatientId = async (patientId, { description, dia
                 }
             }
 
-            // Lấy danh sách Id của SpecificMentalDisorders cũ
+            // Lấy danh sách Id của MentalDisorders cũ
             const { data: oldMentalIds } = await supabase
                 .from('MedicalHistorySpecificMentalDisorder')
                 .select('SpecificMentalDisordersId')
                 .eq('MedicalHistoriesId', Id);
             if (oldMentalIds && oldMentalIds.length > 0) {
                 const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
-                await supabase.from('SpecificMentalDisorders').delete().in('Id', mentalIdsToDelete);
+                await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
             }
-            // Xóa liên kết SpecificMentalDisorders cũ
+            // Xóa liên kết MentalDisorders cũ
             await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
 
-            // Thêm SpecificMentalDisorders mới
-            if (specificMentalDisorders && specificMentalDisorders.length > 0) {
-                const mentalInserts = specificMentalDisorders.map(disorder => ({
+            // Thêm MentalDisorders mới
+            if (mentalDisorders && mentalDisorders.length > 0) {
+                const mentalInserts = mentalDisorders.map(disorder => ({
                     Name: disorder.name,
                     Description: disorder.description,
                 }));
-                const { error: mentalError } = await supabase.from('SpecificMentalDisorders').insert(mentalInserts);
+                const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
                 if (mentalError) throw new Error(mentalError.message);
 
-                const mentalData = await supabase.from('SpecificMentalDisorders').select('Id').order('Id', { ascending: false }).limit(specificMentalDisorders.length);
+                const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
                 if (mentalData && mentalData.data && mentalData.data.length > 0) {
                     const mentalLinks = mentalData.data.map((disorder, index) => ({
                         MedicalHistoriesId: Id,
@@ -301,16 +301,16 @@ exports.deleteMedicalHistory = async (Id) => {
     const { error: physLinkError } = await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
     if (physLinkError) throw new Error(physLinkError.message);
 
-    // Lấy danh sách Id của SpecificMentalDisorders cũ
+    // Lấy danh sách Id của MentalDisorders cũ
     const { data: oldMentalIds } = await supabase
         .from('MedicalHistorySpecificMentalDisorder')
         .select('SpecificMentalDisordersId')
         .eq('MedicalHistoriesId', Id);
     if (oldMentalIds && oldMentalIds.length > 0) {
         const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
-        await supabase.from('SpecificMentalDisorders').delete().in('Id', mentalIdsToDelete);
+        await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
     }
-    // Xóa liên kết SpecificMentalDisorders
+    // Xóa liên kết MentalDisorders
     const { error: specLinkError } = await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
     if (specLinkError) throw new Error(specLinkError.message);
 

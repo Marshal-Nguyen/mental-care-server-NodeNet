@@ -95,7 +95,9 @@ app.use("/api", medicalRecordRouter);
 // Medical History
 const medicalHistoryRouter = require("./src/modules/medicalHistory/medicalHistoryRouter");
 app.use("/api", medicalHistoryRouter);
-
+// Special Mental Disorder
+const specialMentalDisorderRoute = require("./src/modules/specialMentalDisorder/specialMentalDisorder.route");
+app.use("/special-disorders", specialMentalDisorderRoute);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
