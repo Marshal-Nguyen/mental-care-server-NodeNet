@@ -15,7 +15,7 @@ router.get("/chat-users/:role/:userId", async (req, res) => {
     if (role === "Doctor") {
       const { data, error } = await supabase
         .from("Bookings")
-        .select("PatientProfiles(UserId, FullName)")
+        .select("PatientProfiles(UserId, FullName, Id)")
         .eq("DoctorId", userId); // dùng userId từ request
 
       if (error) throw error;
@@ -27,6 +27,7 @@ router.get("/chat-users/:role/:userId", async (req, res) => {
             acc[p.UserId] = {
               Id: p.UserId, // 👈 Dùng UserId
               fullName: p.FullName,
+              avatarId: p.Id,
             };
           }
           return acc;
@@ -39,7 +40,7 @@ router.get("/chat-users/:role/:userId", async (req, res) => {
     if (role === "User") {
       const { data, error } = await supabase
         .from("Bookings")
-        .select("DoctorProfiles(UserId, FullName)")
+        .select("DoctorProfiles(UserId, FullName, Id)")
         .eq("PatientId", userId); // dùng userId từ request
 
       if (error) throw error;
@@ -51,6 +52,7 @@ router.get("/chat-users/:role/:userId", async (req, res) => {
             acc[p.UserId] = {
               Id: p.UserId, // 👈 Dùng UserId
               fullName: p.FullName,
+              avatarId: p.Id,
             };
           }
           return acc;
