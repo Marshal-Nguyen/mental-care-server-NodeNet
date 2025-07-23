@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const listEndpoints = require("express-list-endpoints"); // <--- thêm dòng này
-
+const setupCredentials = require("./src/scripts/setup-credentials");
+setupCredentials();
 const app = express();
 require("dotenv").config();
 
