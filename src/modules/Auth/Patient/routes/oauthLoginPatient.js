@@ -38,7 +38,7 @@ router.post("/auth/login", async (req, res) => {
     // Lấy profileId, IsProfileCompleted và Email từ PatientProfiles
     const { data: patientData, error: patientError } = await supabase
       .from("PatientProfiles")
-      .select("Id, IsProfileCompleted, Email, FullName, PhoneNumber")
+      .select("Id, IsProfileCompleted, Email, FullName, PhoneNumber, BirthDate")
       .eq("UserId", userId)
       .single();
 
@@ -57,6 +57,7 @@ router.post("/auth/login", async (req, res) => {
     const email = patientData.Email; // Bây giờ không còn xung đột
     const fullName = patientData.FullName;
     const phoneNumber = patientData.PhoneNumber;
+    const birthDate = patientData.BirthDate;
     return res.json({
       message: "Đăng nhập thành công",
       token: access_token,
@@ -68,6 +69,7 @@ router.post("/auth/login", async (req, res) => {
       email,
       fullName,
       phoneNumber,
+      birthDate,
     });
   } catch (err) {
     console.error("Login error:", err);
