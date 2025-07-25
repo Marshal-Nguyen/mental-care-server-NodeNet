@@ -1,16 +1,15 @@
 const express = require("express");
 const paymentController = require("../payment/payment.controller");
 const paymentZalo = express.Router();
-paymentZalo.post("/pay-booking", paymentController.paymentZalo);
+const { authMiddleware, restrictTo } = require('../../middlewares/auth.middleware');
 
-paymentZalo.post(`/callback`, paymentController.paymentCallback);
+paymentZalo.post("/pay-booking", authMiddleware, restrictTo('User', 'Manager'), paymentController.paymentZalo);
 
-paymentZalo.get(
-  "/check-payment-status/:transId",
-  paymentController.checkPayment
-);
+paymentZalo.post(`/callback`, authMiddleware, restrictTo('User', 'Manager'), paymentController.paymentCallback);
 
-paymentZalo.get("/", paymentController.getPayment);
+paymentZalo.get("/check-payment-status/:transId", authMiddleware, restrictTo('User', 'Manager'), paymentController.checkPayment);
 
-paymentZalo.get("/daily-total", paymentController.getDailyTotal);
+paymentZalo.get("/", authMiddleware, restrictTo('User', 'Manager'), paymentController.getPayment);
+
+paymentZalo.get("/daily-total", authMiddleware, restrictTo('User', 'Manager'), paymentController.getDailyTotal);
 module.exports = paymentZalo;
