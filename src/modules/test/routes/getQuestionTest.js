@@ -221,7 +221,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
 
     try {
       const profileResponse = await axios.get(
-        `http://localhost:3000/api/patient-profiles/${patientId}`
+        `https://mental-care-server-nodenet.onrender.com/api/patient-profiles/${patientId}`
       );
       profile = profileResponse.data || {};
       patientName = profile.FullName || "Unknown";
@@ -237,7 +237,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
 
     try {
       const jobResponse = await axios.get(
-        `http://localhost:3000/api/patient-job-info/${patientId}`
+        `https://mental-care-server-nodenet.onrender.com/api/patient-job-info/${patientId}`
       );
       const jobInfo = jobResponse.data || {};
       jobTitle = jobInfo.JobTitle || "Unknown";
@@ -251,10 +251,10 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
 
     try {
       const improvementResponse = await axios.get(
-        `http://localhost:3000/api/patient-improvement/${patientId}`
+        `https://mental-care-server-nodenet.onrender.com/api/patient-improvement/${patientId}`
       );
-      improvementGoals = Array.isArray(improvementResponse.data) 
-        ? improvementResponse.data 
+      improvementGoals = Array.isArray(improvementResponse.data)
+        ? improvementResponse.data
         : [];
     } catch (error) {
       console.warn("Failed to fetch patient improvement goals:", error.message);
@@ -265,7 +265,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
 
     try {
       const emotionResponse = await axios.get(
-        `http://localhost:3000/api/patient-emotions/${patientId}`
+        `https://mental-care-server-nodenet.onrender.com/api/patient-emotions/${patientId}`
       );
       emotionSelections = Array.isArray(emotionResponse.data)
         ? emotionResponse.data
@@ -351,13 +351,14 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`;
-      
+
       const geminiResponse = await axios.post(url, geminiPayload, {
         headers: { "Content-Type": "application/json" },
         timeout: 30000, // 30 seconds timeout
       });
 
-      const responseText = geminiResponse.data.candidates[0].content.parts[0].text;
+      const responseText =
+        geminiResponse.data.candidates[0].content.parts[0].text;
 
       try {
         recommendation = JSON.parse(responseText);
@@ -367,8 +368,8 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       }
     } catch (geminiError) {
       console.error("Failed to call Gemini API:", geminiError.message);
-      recommendation = { 
-        raw: "Tạm thời không thể tạo gợi ý cá nhân hóa. Vui lòng thử lại sau." 
+      recommendation = {
+        raw: "Tạm thời không thể tạo gợi ý cá nhân hóa. Vui lòng thử lại sau.",
       };
     }
 
@@ -427,7 +428,6 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
         recommendation: recommendation,
         patientName: patientName,
         patientAge: patientAge,
-     
       },
     });
   } catch (err) {
@@ -459,7 +459,7 @@ router.get(
 
       // Lấy thông tin bệnh nhân
       const profileResponse = await axios.get(
-        `http://localhost:3000/api/patient-profiles/${data.PatientId}`
+        `https://mental-care-server-nodenet.onrender.com/api/patient-profiles/${data.PatientId}`
       );
       const profile = profileResponse.data;
       const patientName = profile.FullName;
