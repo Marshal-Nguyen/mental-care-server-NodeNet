@@ -1,15 +1,8 @@
-// const express = require('express');
-// const router = express.Router();
-// const doctorScheduleController = require('./doctorSchedule.controller');
 
-// router.post('/doctors/:doctorId/schedule', doctorScheduleController.createSchedule);
-// router.get('/doctors/:doctorId/:day', doctorScheduleController.getSchedule);
-// router.put('/doctors/:doctorId/:day', doctorScheduleController.updateAvailability);
-
-// module.exports = router;
 const express = require('express');
 const router = express.Router();
 const doctorScheduleController = require('./doctorSchedule.controller');
+const { authMiddleware, restrictTo } = require('../../middlewares/auth.middleware');
 
 // Middleware kiểm tra dữ liệu đầu vào
 const validateCreateSchedule = (req, res, next) => {
@@ -21,8 +14,8 @@ const validateCreateSchedule = (req, res, next) => {
 };
 
 // Định nghĩa các endpoint
-router.post('/doctors/:doctorId/schedule', validateCreateSchedule, doctorScheduleController.createSchedule);
+router.post('/doctors/:doctorId/schedule', authMiddleware, restrictTo('Doctor'), validateCreateSchedule, doctorScheduleController.createSchedule);
 router.get('/doctors/:doctorId/:day', doctorScheduleController.getSchedule);
-router.put('/doctors/:doctorId/:day', doctorScheduleController.updateAvailability);
+router.put('/doctors/:doctorId/:day', authMiddleware, restrictTo('Doctor'), doctorScheduleController.updateAvailability);
 
 module.exports = router;
