@@ -28,14 +28,16 @@ router.post("/invite-doctor", requireManager, async (req, res) => {
 });
 
 router.post("/verify-doctor-email", async (req, res) => {
-  const { userId } = req.body;
+  const { userId, email } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: "Thiếu thông tin userId" });
   }
-
+  if (!email) {
+    return res.status(400).json({ error: "Thiếu thông tin email" });
+  }
   try {
-    const result = await updateDoctorStatus(userId);
+    const result = await updateDoctorStatus(userId, email);
     return res
       .status(200)
       .json({ message: "Cập nhật trạng thái thành công", ...result });
