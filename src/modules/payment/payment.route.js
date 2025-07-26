@@ -20,8 +20,7 @@ paymentZalo.post(
 
 paymentZalo.get(
   "/check-payment-status/:transId",
-  authMiddleware,
-  restrictTo("User", "Manager"),
+
   paymentController.checkPayment
 );
 
