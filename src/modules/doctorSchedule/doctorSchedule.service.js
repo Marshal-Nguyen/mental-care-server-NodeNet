@@ -289,7 +289,7 @@ class DoctorScheduleService {
     generateTimeSlots(selectedDate, slotDuration, slotsPerDay, bookings) {
         const timeSlots = [];
         let currentSlot = new Date(selectedDate);
-        currentSlot.setUTCHours(8, 0, 0, 0); // Start at 8:00 AM UTC
+        currentSlot.setUTCHours(8, 0, 0, 0); // Bắt đầu lúc 8:00 AM UTC
         let slotsGenerated = 0;
 
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -298,13 +298,13 @@ class DoctorScheduleService {
         while (slotsGenerated < slotsPerDay) {
             const endTime = new Date(currentSlot.getTime() + slotDuration * 60 * 1000);
 
-            // Skip lunch break (12:00-13:00)
+            // Bỏ qua giờ nghỉ trưa (12:00-13:00)
             if (currentSlot.getUTCHours() === 12 && currentSlot.getUTCMinutes() === 0) {
                 currentSlot.setUTCHours(13, 0, 0, 0);
                 continue;
             }
 
-            // Stop if beyond working hours (17:00)
+            // Dừng nếu vượt quá giờ làm việc (17:00)
             if (endTime.getUTCHours() > 17 || (endTime.getUTCHours() === 17 && endTime.getUTCMinutes() > 0)) {
                 break;
             }
@@ -312,7 +312,7 @@ class DoctorScheduleService {
             const startTimeStr = DateUtils.formatTime(currentSlot);
             const endTimeStr = DateUtils.formatTime(endTime);
 
-            // Check if slot is booked
+            // Kiểm tra xem slot có bị đặt không
             const isBooked = bookings.some(booked => {
                 const bookedStart = new Date(`1970-01-01T${booked.StartTime}Z`);
                 const bookedEnd = new Date(bookedStart.getTime() + booked.Duration * 60 * 1000);
@@ -321,17 +321,16 @@ class DoctorScheduleService {
                 return slotStart < bookedEnd && slotEnd > bookedStart;
             });
 
-            if (!isBooked) {
-                timeSlots.push({
-                    status: 'Available',
-                    dayOfWeek,
-                    startTime: startTimeStr,
-                    endTime: endTimeStr,
-                    occupiedInfo: ''
-                });
-                slotsGenerated++;
-            }
+            // Thêm slot vào danh sách, kể cả khi đã được đặt
+            timeSlots.push({
+                status: isBooked ? 'Booked' : 'Available',
+                dayOfWeek,
+                startTime: startTimeStr,
+                endTime: endTimeStr,
+                occupiedInfo: isBooked ? 'Already booked' : ''
+            });
 
+            slotsGenerated++;
             currentSlot = endTime;
         }
 

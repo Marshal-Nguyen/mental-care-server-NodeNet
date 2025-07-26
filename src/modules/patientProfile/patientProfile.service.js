@@ -144,6 +144,7 @@ exports.deletePatientProfile = async (id) => {
             PhoneNumber: null,
             CreatedAt: null,
             CreatedBy: null,
+            BirthDate: null,
             LastModified: null,
             LastModifiedBy: null,
             PersonalityTraits: null,

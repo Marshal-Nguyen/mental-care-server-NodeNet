@@ -99,6 +99,12 @@ app.use("/api", medicalHistoryRouter);
 // Special Mental Disorder
 const specialMentalDisorderRoute = require("./src/modules/specialMentalDisorder/specialMentalDisorder.route");
 app.use("/special-disorders", specialMentalDisorderRoute);
+// Test View
+const testResultsRoutes = require("./src/modules/testView/testResults.routes");
+app.use("/api", testResultsRoutes);
+// Top Doctors
+const topDoctorsRoutes = require("./src/modules/topDoctor/topDoctorsRoutes");
+app.use("/api", topDoctorsRoutes);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");

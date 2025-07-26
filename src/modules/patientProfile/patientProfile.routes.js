@@ -3,6 +3,7 @@ const router = express.Router();
 const patientProfileController = require('./patientProfile.controller');
 const { authMiddleware, restrictTo } = require('../../middlewares/auth.middleware');
 
+// router.get('/patient-profiles', patientProfileController.getAllPatientProfiles);
 router.get('/patient-profiles', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.getAllPatientProfiles);
 router.get('/patient-profiles/search', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.searchPatientProfilesByName);
 router.get('/patient-profiles/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.getPatientProfileById);
