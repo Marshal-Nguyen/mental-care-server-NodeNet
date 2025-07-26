@@ -30,6 +30,7 @@ exports.getAllDoctorProfiles = async (pageIndex = 1, pageSize = 10, sortBy = 'Fu
             LastModified,
             LastModifiedBy,
             Status,
+            Price,
             DoctorProfileSpecialty (
                 SpecialtiesId,
                 Specialties (Id, Name)
@@ -95,6 +96,7 @@ exports.searchDoctorProfilesByName = async (fullName = '', pageIndex = 1, pageSi
             LastModified,
             LastModifiedBy,
             Status,
+            Price,
             DoctorProfileSpecialty (
                 SpecialtiesId,
                 Specialties (Id, Name)
@@ -156,6 +158,7 @@ exports.getDoctorProfileById = async (id) => {
             LastModified,
             LastModifiedBy,
             Status,
+            Price,
             DoctorProfileSpecialty (
                 SpecialtiesId,
                 Specialties (Id, Name)
@@ -261,7 +264,8 @@ exports.deleteDoctorProfile = async (id) => {
             CreatedBy: null,
             LastModified: null,
             LastModifiedBy: null,
-            Status: null
+            Status: null,
+            Price: null,
         })
         .eq('Id', id)
         .select();
