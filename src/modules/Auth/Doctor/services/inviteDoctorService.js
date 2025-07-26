@@ -74,7 +74,7 @@ async function inviteDoctor({ email, full_name }) {
   }
 }
 
-async function updateDoctorStatus(userId) {
+async function updateDoctorStatus(userId, email) {
   console.log("Updating doctor status for userId:", userId);
   try {
     // Update doctor profile status
@@ -82,6 +82,7 @@ async function updateDoctorStatus(userId) {
       .from("DoctorProfiles")
       .update({
         Status: "active", // Change status to active after verification
+        Email: email, // Update email if provided
       })
       .eq("UserId", userId)
       .select()
