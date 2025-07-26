@@ -294,7 +294,7 @@ const cancelBooking = async (req, res) => {
     if (diffInHours >= 24 && payment?.Id) {
       const { error: updatePaymentError } = await supabase
         .from("Payments")
-        .update({ TotalAmount: 100000 })
+        .update({ TotalAmount: payment.TotalAmount * 0.5 })
         .eq("Id", payment.Id);
 
       if (updatePaymentError) {
