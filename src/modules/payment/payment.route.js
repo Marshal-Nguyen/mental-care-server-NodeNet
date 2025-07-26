@@ -15,8 +15,6 @@ paymentZalo.post(
 
 paymentZalo.post(
   `/callback`,
-  authMiddleware,
-  restrictTo("User", "Manager"),
   paymentController.paymentCallback
 );
 

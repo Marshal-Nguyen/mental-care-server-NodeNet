@@ -44,8 +44,8 @@ const paymentZalo = async (req, res) => {
     amount: amount,
     description: "ZaloPay Integration",
     bank_code: "",
-    // callback_url: `https://mental-care-server-nodenet.onrender.com/api/payment-zalo/callback`,
-    callback_url: `${process.env.NGROK_URL}/api/payment-zalo/callback`,
+    callback_url: `https://mental-care-server-nodenet.onrender.com/api/payment-zalo/callback`,
+    // callback_url: `${process.env.NGROK_URL}/api/payment-zalo/callback`,
   };
 
   const data =
