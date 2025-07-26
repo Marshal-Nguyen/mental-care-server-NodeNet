@@ -24,7 +24,7 @@ const paymentZalo = async (req, res) => {
   //visa
   embeddata = {
     preferred_payment_methods: ["international_card"],
-    redirecturl: `http://localhost:5173/payments/callback`,
+    redirecturl: `https://emoeaseai-ruby.vercel.app/payments/callback`,
     doctorId: items[0]?.doctorId,
     patientId: items[0]?.patientId,
     date: items[0]?.date,
