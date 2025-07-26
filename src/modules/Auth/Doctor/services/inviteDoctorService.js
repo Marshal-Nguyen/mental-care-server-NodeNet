@@ -75,15 +75,19 @@ async function inviteDoctor({ email, full_name }) {
 }
 
 async function updateDoctorStatus(userId, email) {
-  console.log("Updating doctor status for userId:", userId);
+  console.log("Updating doctor status for userId:", userId, email);
   try {
+    // Build update object
+    const updateObj = {
+      Status: "active",
+      LastModified: new Date().toISOString(),
+    };
+    if (email) updateObj.Email = email;
+
     // Update doctor profile status
     const { data: doctor, error: updateError } = await supabase
       .from("DoctorProfiles")
-      .update({
-        Status: "active", // Change status to active after verification
-        Email: email, // Update email if provided
-      })
+      .update(updateObj)
       .eq("UserId", userId)
       .select()
       .single();
@@ -91,6 +95,12 @@ async function updateDoctorStatus(userId, email) {
     if (updateError) {
       console.error("Status update error:", updateError);
       throw updateError;
+    }
+    if (!doctor) {
+      return {
+        success: false,
+        message: "Không tìm thấy hồ sơ bác sĩ để cập nhật",
+      };
     }
 
     return {
