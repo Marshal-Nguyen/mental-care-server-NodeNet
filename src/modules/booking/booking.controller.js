@@ -315,7 +315,7 @@ const cancelBooking = async (req, res) => {
         : "Đã huỷ (do huỷ trễ hơn 1 ngày, không hoàn tiền)",
       updatedBooking,
       updatedPrice,
-      newAmount: updatedPrice ? 100000 : null,
+      newAmount: updatedPrice ? payment.TotalAmount * 0.5 : null,
     });
   } catch (err) {
     return res.status(500).json({
