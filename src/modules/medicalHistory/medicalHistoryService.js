@@ -1,320 +1,372 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
-    const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
-    if (!cleanedDiagnosedAt) throw new Error("diagnosedAt là bắt buộc");
-    const [year, month, day] = cleanedDiagnosedAt.split('-');
-    const diagnosedAtDate = new Date(year, month - 1, day);
-    if (isNaN(diagnosedAtDate.getTime())) throw new Error("Ngày diagnosedAt không hợp lệ (yêu cầu yyyy-mm-dd)");
+// Hàm kiểm tra định dạng ngày
+const validateDateFormat = (dateStr) => {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        throw new Error("diagnosedAt phải có định dạng yyyy-mm-dd");
+    }
+    const [year, month, day] = dateStr.split('-');
+    const date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) {
+        throw new Error("Ngày diagnosedAt không hợp lệ");
+    }
+    return date;
+};
 
+// Hàm kiểm tra đầu vào
+const validateInput = ({ patientId, createdBy, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
+    if (!patientId || typeof patientId !== 'string') throw new Error("patientId là bắt buộc và phải là chuỗi");
+    if (!createdBy || typeof createdBy !== 'string') throw new Error("createdBy là bắt buộc và phải là chuỗi");
+    if (!lastModifiedBy || typeof lastModifiedBy !== 'string') throw new Error("lastModifiedBy là bắt buộc và phải là chuỗi");
+    if (!Array.isArray(physicalSymptoms) || !Array.isArray(mentalDisorders)) {
+        throw new Error("physicalSymptoms và mentalDisorders phải là mảng");
+    }
+    physicalSymptoms.forEach((symptom, idx) => {
+        if (!symptom.name || typeof symptom.name !== 'string') {
+            throw new Error(`physicalSymptoms[${idx}].name là bắt buộc và phải là chuỗi`);
+        }
+    });
+    mentalDisorders.forEach((disorder, idx) => {
+        if (!disorder.name || typeof disorder.name !== 'string') {
+            throw new Error(`mentalDisorders[${idx}].name là bắt buộc và phải là chuỗi`);
+        }
+    });
+};
+
+exports.createMedicalHistory = async ({ patientId, description, diagnosedAt, createdBy, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
+    // Kiểm tra đầu vào
+    validateInput({ patientId, createdBy, lastModifiedBy, physicalSymptoms, mentalDisorders });
+    const diagnosedAtDate = validateDateFormat(diagnosedAt);
+
+    // Thêm MedicalHistory
     const { data: historyData, error: historyError } = await supabase
         .from('MedicalHistories')
         .insert({
             PatientId: patientId,
-            Description: description,
-            DiagnosedAt: diagnosedAtDate,
+            Description: description || '',
+            DiagnosedAt: diagnosedAtDate.toISOString(),
             CreatedBy: createdBy,
             LastModifiedBy: lastModifiedBy,
-            CreatedAt: new Date(),
-            LastModified: new Date()
+            CreatedAt: new Date().toISOString(),
+            LastModified: new Date().toISOString()
         })
-        .select();
-    if (historyError) throw new Error(historyError.message);
-
-    const historyId = historyData[0].Id;
+        .select('Id')
+        .single();
+    if (historyError) throw new Error(`Lỗi khi thêm MedicalHistory: ${historyError.message}`);
+    const historyId = historyData.Id;
 
     // Cập nhật MedicalHistoryId trong PatientProfiles
     const { error: profileError } = await supabase
         .from('PatientProfiles')
         .update({ MedicalHistoryId: historyId })
         .eq('Id', patientId);
-    if (profileError) throw new Error(profileError.message);
+    if (profileError) throw new Error(`Lỗi khi cập nhật PatientProfiles: ${profileError.message}`);
 
     // Thêm PhysicalSymptoms
-    if (physicalSymptoms && Array.isArray(physicalSymptoms) && physicalSymptoms.length > 0) {
+    if (physicalSymptoms.length > 0) {
         const physicalInserts = physicalSymptoms.map(symptom => ({
-            Name: symptom.name || '',
+            Name: symptom.name,
             Description: symptom.description || '',
-        }));
-        const { error: physError } = await supabase.from('PhysicalSymptoms').insert(physicalInserts);
-        if (physError) throw new Error(physError.message);
 
-        const physData = await supabase.from('PhysicalSymptoms').select('Id').order('Id', { ascending: false }).limit(physicalSymptoms.length);
-        if (physData && physData.data && physData.data.length > 0) {
-            const physLinks = physData.data.map((symptom, index) => ({
-                MedicalHistoriesId: historyId,
-                PhysicalSymptomsId: symptom.Id,
-            }));
-            if (physLinks.length > 0) {
-                const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
-                if (linkPhysError) throw new Error(linkPhysError.message);
-            }
+        }));
+        const { data: physData, error: physError } = await supabase
+            .from('PhysicalSymptoms')
+            .insert(physicalInserts)
+            .select('Id');
+        if (physError) throw new Error(`Lỗi khi thêm PhysicalSymptoms: ${physError.message}`);
+
+        const physLinks = physData.map(symptom => ({
+            MedicalHistoriesId: historyId,
+            PhysicalSymptomsId: symptom.Id,
+
+        }));
+        if (physLinks.length > 0) {
+            const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
+            if (linkPhysError) throw new Error(`Lỗi khi liên kết PhysicalSymptoms: ${linkPhysError.message}`);
         }
     }
 
     // Thêm MentalDisorders
-    if (mentalDisorders && Array.isArray(mentalDisorders) && mentalDisorders.length > 0) {
+    if (mentalDisorders.length > 0) {
         const mentalInserts = mentalDisorders.map(disorder => ({
-            Name: disorder.name || '',
+            Name: disorder.name,
             Description: disorder.description || '',
-        }));
-        const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
-        if (mentalError) throw new Error(mentalError.message);
 
-        const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
-        if (mentalData && mentalData.data && mentalData.data.length > 0) {
-            const mentalLinks = mentalData.data.map((disorder, index) => ({
-                MedicalHistoriesId: historyId,
-                SpecificMentalDisordersId: disorder.Id,
-            }));
-            if (mentalLinks.length > 0) {
-                const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
-                if (linkMentalError) throw new Error(linkMentalError.message);
-            }
+        }));
+        const { data: mentalData, error: mentalError } = await supabase
+            .from('MentalDisorders')
+            .insert(mentalInserts)
+            .select('Id');
+        if (mentalError) throw new Error(`Lỗi khi thêm MentalDisorders: ${mentalError.message}`);
+
+        const mentalLinks = mentalData.map(disorder => ({
+            MedicalHistoriesId: historyId,
+            SpecificMentalDisordersId: disorder.Id,
+
+        }));
+        if (mentalLinks.length > 0) {
+            const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
+            if (linkMentalError) throw new Error(`Lỗi khi liên kết MentalDisorders: ${linkMentalError.message}`);
         }
     }
 
-    return await this.getMedicalHistory(historyId);
+    return await exports.getMedicalHistory(historyId);
 };
 
 exports.getMedicalHistory = async (Id) => {
+    if (!Id || typeof Id !== 'string') throw new Error("Id là bắt buộc và phải là chuỗi");
     const { data, error } = await supabase
         .from('MedicalHistories')
         .select(`
-      *,
-      MedicalHistoryPhysicalSymptom (
-        *,
-        PhysicalSymptoms (*)
-      ),
-      MedicalHistorySpecificMentalDisorder (
-        *,
-        MentalDisorders (*)
-      )
-    `)
+            *,
+            MedicalHistoryPhysicalSymptom (
+                *,
+                PhysicalSymptoms (*)
+            ),
+            MedicalHistorySpecificMentalDisorder (
+                *,
+                MentalDisorders (*)
+            )
+        `)
         .eq('Id', Id)
         .single();
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(`Lỗi khi lấy MedicalHistory: ${error.message}`);
     return data;
 };
 
 exports.getMedicalHistoriesByPatientId = async (patientId) => {
+    if (!patientId || typeof patientId !== 'string') throw new Error("patientId là bắt buộc và phải là chuỗi");
     const { data, error } = await supabase
         .from('MedicalHistories')
         .select(`
-      *,
-      MedicalHistoryPhysicalSymptom (
-        *,
-        PhysicalSymptoms (*)
-      ),
-      MedicalHistorySpecificMentalDisorder (
-        *,
-        MentalDisorders (*)
-      )
-    `)
+            *,
+            MedicalHistoryPhysicalSymptom (
+                *,
+                PhysicalSymptoms (*)
+            ),
+            MedicalHistorySpecificMentalDisorder (
+                *,
+                MentalDisorders (*)
+            )
+        `)
         .eq('PatientId', patientId);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(`Lỗi khi lấy MedicalHistories: ${error.message}`);
     return data;
 };
 
-exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt, lastModifiedBy, physicalSymptoms, mentalDisorders }) => {
-    const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
-    if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
-    const diagnosedAtDate = new Date(cleanedDiagnosedAt);
-    if (isNaN(diagnosedAtDate.getTime())) throw new Error("Invalid diagnosedAt date");
+exports.updateMedicalHistory = async (Id, { patientId, description, diagnosedAt, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
+    // Kiểm tra đầu vào
+    validateInput({ patientId, createdBy: lastModifiedBy, lastModifiedBy, physicalSymptoms, mentalDisorders });
+    const diagnosedAtDate = validateDateFormat(diagnosedAt);
 
+    // Cập nhật MedicalHistory
     const { data: historyData, error: historyError } = await supabase
         .from('MedicalHistories')
         .update({
             PatientId: patientId,
-            Description: description,
-            DiagnosedAt: diagnosedAtDate,
+            Description: description || '',
+            DiagnosedAt: diagnosedAtDate.toISOString(),
             LastModifiedBy: lastModifiedBy,
-            LastModified: new Date()
+            LastModified: new Date().toISOString()
         })
         .eq('Id', Id)
-        .select();
-    if (historyError) throw new Error(historyError.message);
+        .select('Id')
+        .single();
+    if (historyError) throw new Error(`Lỗi khi cập nhật MedicalHistory: ${historyError.message}`);
 
-    // Cập nhật PhysicalSymptoms
-    if (physicalSymptoms && physicalSymptoms.length > 0) {
-        await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
-        const physicalInserts = physicalSymptoms.map(symptom => ({
-            Name: symptom.name,
-            Description: symptom.description,
-            CreatedAt: new Date(),
-            LastModified: new Date(),
-            CreatedBy: lastModifiedBy,
-            LastModifiedBy: lastModifiedBy
-        }));
-        const { error: physError } = await supabase.from('PhysicalSymptoms').insert(physicalInserts);
-        if (physError) throw new Error(physError.message);
-
-        const physData = await supabase.from('PhysicalSymptoms').select('Id').order('Id', { ascending: false }).limit(physicalSymptoms.length);
-        if (physData && physData.data && physData.data.length > 0) {
-            const physLinks = physData.data.map((symptom, index) => ({
-                MedicalHistoriesId: Id,
-                PhysicalSymptomsId: symptom.Id,
-                CreatedAt: new Date(),
-                LastModified: new Date(),
-                CreatedBy: lastModifiedBy,
-                LastModifiedBy: lastModifiedBy
-            }));
-            const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
-            if (linkPhysError) throw new Error(linkPhysError.message);
-        }
-    }
-
-    // Cập nhật MentalDisorders
-    if (mentalDisorders && mentalDisorders.length > 0) {
-        await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
-        const mentalInserts = mentalDisorders.map(disorder => ({
-            Name: disorder.name,
-            Description: disorder.description,
-            CreatedAt: new Date(),
-            LastModified: new Date(),
-            CreatedBy: lastModifiedBy,
-            LastModifiedBy: lastModifiedBy
-        }));
-        const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
-        if (mentalError) throw new Error(mentalError.message);
-
-        const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
-        if (mentalData && mentalData.data && mentalData.data.length > 0) {
-            const mentalLinks = mentalData.data.map((disorder, index) => ({
-                MedicalHistoriesId: Id,
-                SpecificMentalDisordersId: disorder.Id,
-                CreatedAt: new Date(),
-                LastModified: new Date(),
-                CreatedBy: lastModifiedBy,
-                LastModifiedBy: lastModifiedBy
-            }));
-            const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
-            if (linkMentalError) throw new Error(linkMentalError.message);
-        }
-    }
-
-    return await this.getMedicalHistory(Id);
-};
-
-exports.updateMedicalHistoriesByPatientId = async (patientId, { description, diagnosedAt, lastModifiedBy, physicalSymptoms, mentalDisorders }) => {
-    const cleanedDiagnosedAt = diagnosedAt ? diagnosedAt.trim() : null;
-    if (!cleanedDiagnosedAt) throw new Error("diagnosedAt is required");
-    const diagnosedAtDate = new Date(cleanedDiagnosedAt);
-    if (isNaN(diagnosedAtDate.getTime())) throw new Error("Invalid diagnosedAt date");
-
-    const { data: historyData, error: historyError } = await supabase
-        .from('MedicalHistories')
-        .update({
-            Description: description,
-            DiagnosedAt: diagnosedAtDate,
-            LastModifiedBy: lastModifiedBy,
-            LastModified: new Date()
-        })
-        .eq('PatientId', patientId)
-        .select();
-    if (historyError) throw new Error(historyError.message);
-
-    if (historyData && historyData.length > 0) {
-        for (const history of historyData) {
-            const Id = history.Id;
-
-            // Lấy danh sách Id của PhysicalSymptoms cũ
-            const { data: oldPhysIds } = await supabase
-                .from('MedicalHistoryPhysicalSymptom')
-                .select('PhysicalSymptomsId')
-                .eq('MedicalHistoriesId', Id);
-            if (oldPhysIds && oldPhysIds.length > 0) {
-                const physIdsToDelete = oldPhysIds.map(item => item.PhysicalSymptomsId);
-                await supabase.from('PhysicalSymptoms').delete().in('Id', physIdsToDelete);
-            }
-            // Xóa liên kết PhysicalSymptoms cũ
-            await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
-
-            // Thêm PhysicalSymptoms mới
-            if (physicalSymptoms && physicalSymptoms.length > 0) {
-                const physicalInserts = physicalSymptoms.map(symptom => ({
-                    Name: symptom.name,
-                    Description: symptom.description,
-                }));
-                const { error: physError } = await supabase.from('PhysicalSymptoms').insert(physicalInserts);
-                if (physError) throw new Error(physError.message);
-
-                const physData = await supabase.from('PhysicalSymptoms').select('Id').order('Id', { ascending: false }).limit(physicalSymptoms.length);
-                if (physData && physData.data && physData.data.length > 0) {
-                    const physLinks = physData.data.map((symptom, index) => ({
-                        MedicalHistoriesId: Id,
-                        PhysicalSymptomsId: symptom.Id,
-                    }));
-                    const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
-                    if (linkPhysError) throw new Error(linkPhysError.message);
-                }
-            }
-
-            // Lấy danh sách Id của MentalDisorders cũ
-            const { data: oldMentalIds } = await supabase
-                .from('MedicalHistorySpecificMentalDisorder')
-                .select('SpecificMentalDisordersId')
-                .eq('MedicalHistoriesId', Id);
-            if (oldMentalIds && oldMentalIds.length > 0) {
-                const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
-                await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
-            }
-            // Xóa liên kết MentalDisorders cũ
-            await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
-
-            // Thêm MentalDisorders mới
-            if (mentalDisorders && mentalDisorders.length > 0) {
-                const mentalInserts = mentalDisorders.map(disorder => ({
-                    Name: disorder.name,
-                    Description: disorder.description,
-                }));
-                const { error: mentalError } = await supabase.from('MentalDisorders').insert(mentalInserts);
-                if (mentalError) throw new Error(mentalError.message);
-
-                const mentalData = await supabase.from('MentalDisorders').select('Id').order('Id', { ascending: false }).limit(mentalDisorders.length);
-                if (mentalData && mentalData.data && mentalData.data.length > 0) {
-                    const mentalLinks = mentalData.data.map((disorder, index) => ({
-                        MedicalHistoriesId: Id,
-                        SpecificMentalDisordersId: disorder.Id,
-                    }));
-                    const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
-                    if (linkMentalError) throw new Error(linkMentalError.message);
-                }
-            }
-        }
-    }
-
-    return await this.getMedicalHistoriesByPatientId(patientId);
-};
-exports.deleteMedicalHistory = async (Id) => {
-    // Lấy danh sách Id của PhysicalSymptoms cũ
+    // Xóa liên kết và PhysicalSymptoms cũ
     const { data: oldPhysIds } = await supabase
         .from('MedicalHistoryPhysicalSymptom')
         .select('PhysicalSymptomsId')
         .eq('MedicalHistoriesId', Id);
-    if (oldPhysIds && oldPhysIds.length > 0) {
+    if (oldPhysIds?.length > 0) {
         const physIdsToDelete = oldPhysIds.map(item => item.PhysicalSymptomsId);
         await supabase.from('PhysicalSymptoms').delete().in('Id', physIdsToDelete);
     }
-    // Xóa liên kết PhysicalSymptoms
-    const { error: physLinkError } = await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
-    if (physLinkError) throw new Error(physLinkError.message);
+    await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
 
-    // Lấy danh sách Id của MentalDisorders cũ
+    // Thêm PhysicalSymptoms mới
+    if (physicalSymptoms.length > 0) {
+        const physicalInserts = physicalSymptoms.map(symptom => ({
+            Name: symptom.name,
+            Description: symptom.description || '',
+
+        }));
+        const { data: physData, error: physError } = await supabase
+            .from('PhysicalSymptoms')
+            .insert(physicalInserts)
+            .select('Id');
+        if (physError) throw new Error(`Lỗi khi thêm PhysicalSymptoms: ${physError.message}`);
+
+        const physLinks = physData.map(symptom => ({
+            MedicalHistoriesId: Id,
+            PhysicalSymptomsId: symptom.Id,
+
+        }));
+        const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
+        if (linkPhysError) throw new Error(`Lỗi khi liên kết PhysicalSymptoms: ${linkPhysError.message}`);
+    }
+
+    // Xóa liên kết và MentalDisorders cũ
     const { data: oldMentalIds } = await supabase
         .from('MedicalHistorySpecificMentalDisorder')
         .select('SpecificMentalDisordersId')
         .eq('MedicalHistoriesId', Id);
-    if (oldMentalIds && oldMentalIds.length > 0) {
+    if (oldMentalIds?.length > 0) {
         const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
         await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
     }
-    // Xóa liên kết MentalDisorders
-    const { error: specLinkError } = await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
-    if (specLinkError) throw new Error(specLinkError.message);
+    await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
 
-    // Xóa bản ghi MedicalHistories
+    // Thêm MentalDisorders mới
+    if (mentalDisorders.length > 0) {
+        const mentalInserts = mentalDisorders.map(disorder => ({
+            Name: disorder.name,
+            Description: disorder.description || '',
+
+        }));
+        const { data: mentalData, error: mentalError } = await supabase
+            .from('MentalDisorders')
+            .insert(mentalInserts)
+            .select('Id');
+        if (mentalError) throw new Error(`Lỗi khi thêm MentalDisorders: ${mentalError.message}`);
+
+        const mentalLinks = mentalData.map(disorder => ({
+            MedicalHistoriesId: Id,
+            SpecificMentalDisordersId: disorder.Id,
+
+        }));
+        const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
+        if (linkMentalError) throw new Error(`Lỗi khi liên kết MentalDisorders: ${linkMentalError.message}`);
+    }
+
+    return await exports.getMedicalHistory(Id);
+};
+
+exports.updateMedicalHistoriesByPatientId = async (patientId, { description, diagnosedAt, lastModifiedBy, physicalSymptoms = [], mentalDisorders = [] }) => {
+    // Kiểm tra đầu vào
+    validateInput({ patientId, createdBy: lastModifiedBy, lastModifiedBy, physicalSymptoms, mentalDisorders });
+    const diagnosedAtDate = validateDateFormat(diagnosedAt);
+
+    // Cập nhật tất cả MedicalHistories theo patientId
+    const { data: historyData, error: historyError } = await supabase
+        .from('MedicalHistories')
+        .update({
+            Description: description || '',
+            DiagnosedAt: diagnosedAtDate.toISOString(),
+            LastModifiedBy: lastModifiedBy,
+            LastModified: new Date().toISOString()
+        })
+        .eq('PatientId', patientId)
+        .select('Id');
+    if (historyError) throw new Error(`Lỗi khi cập nhật MedicalHistories: ${historyError.message}`);
+
+    if (historyData?.length > 0) {
+        for (const history of historyData) {
+            const Id = history.Id;
+
+            // Xóa liên kết và PhysicalSymptoms cũ
+            const { data: oldPhysIds } = await supabase
+                .from('MedicalHistoryPhysicalSymptom')
+                .select('PhysicalSymptomsId')
+                .eq('MedicalHistoriesId', Id);
+            if (oldPhysIds?.length > 0) {
+                const physIdsToDelete = oldPhysIds.map(item => item.PhysicalSymptomsId);
+                await supabase.from('PhysicalSymptoms').delete().in('Id', physIdsToDelete);
+            }
+            await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
+
+            // Thêm PhysicalSymptoms mới
+            if (physicalSymptoms.length > 0) {
+                const physicalInserts = physicalSymptoms.map(symptom => ({
+                    Name: symptom.name,
+                    Description: symptom.description || '',
+
+                }));
+                const { data: physData, error: physError } = await supabase
+                    .from('PhysicalSymptoms')
+                    .insert(physicalInserts)
+                    .select('Id');
+                if (physError) throw new Error(`Lỗi khi thêm PhysicalSymptoms: ${physError.message}`);
+
+                const physLinks = physData.map(symptom => ({
+                    MedicalHistoriesId: Id,
+                    PhysicalSymptomsId: symptom.Id,
+
+                }));
+                const { error: linkPhysError } = await supabase.from('MedicalHistoryPhysicalSymptom').insert(physLinks);
+                if (linkPhysError) throw new Error(`Lỗi khi liên kết PhysicalSymptoms: ${linkPhysError.message}`);
+            }
+
+            // Xóa liên kết và MentalDisorders cũ
+            const { data: oldMentalIds } = await supabase
+                .from('MedicalHistorySpecificMentalDisorder')
+                .select('SpecificMentalDisordersId')
+                .eq('MedicalHistoriesId', Id);
+            if (oldMentalIds?.length > 0) {
+                const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
+                await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
+            }
+            await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
+
+            // Thêm MentalDisorders mới
+            if (mentalDisorders.length > 0) {
+                const mentalInserts = mentalDisorders.map(disorder => ({
+                    Name: disorder.name,
+                    Description: disorder.description || '',
+
+                }));
+                const { data: mentalData, error: mentalError } = await supabase
+                    .from('MentalDisorders')
+                    .insert(mentalInserts)
+                    .select('Id');
+                if (mentalError) throw new Error(`Lỗi khi thêm MentalDisorders: ${mentalError.message}`);
+
+                const mentalLinks = mentalData.map(disorder => ({
+                    MedicalHistoriesId: Id,
+                    SpecificMentalDisordersId: disorder.Id,
+
+                }));
+                const { error: linkMentalError } = await supabase.from('MedicalHistorySpecificMentalDisorder').insert(mentalLinks);
+                if (linkMentalError) throw new Error(`Lỗi khi liên kết MentalDisorders: ${linkMentalError.message}`);
+            }
+        }
+    }
+
+    return await exports.getMedicalHistoriesByPatientId(patientId);
+};
+
+exports.deleteMedicalHistory = async (Id) => {
+    if (!Id || typeof Id !== 'string') throw new Error("Id là bắt buộc và phải là chuỗi");
+
+    // Xóa liên kết và PhysicalSymptoms
+    const { data: oldPhysIds } = await supabase
+        .from('MedicalHistoryPhysicalSymptom')
+        .select('PhysicalSymptomsId')
+        .eq('MedicalHistoriesId', Id);
+    if (oldPhysIds?.length > 0) {
+        const physIdsToDelete = oldPhysIds.map(item => item.PhysicalSymptomsId);
+        const { error: physError } = await supabase.from('PhysicalSymptoms').delete().in('Id', physIdsToDelete);
+        if (physError) throw new Error(`Lỗi khi xóa PhysicalSymptoms: ${physError.message}`);
+    }
+    const { error: physLinkError } = await supabase.from('MedicalHistoryPhysicalSymptom').delete().eq('MedicalHistoriesId', Id);
+    if (physLinkError) throw new Error(`Lỗi khi xóa liên kết PhysicalSymptoms: ${physLinkError.message}`);
+
+    // Xóa liên kết và MentalDisorders
+    const { data: oldMentalIds } = await supabase
+        .from('MedicalHistorySpecificMentalDisorder')
+        .select('SpecificMentalDisordersId')
+        .eq('MedicalHistoriesId', Id);
+    if (oldMentalIds?.length > 0) {
+        const mentalIdsToDelete = oldMentalIds.map(item => item.SpecificMentalDisordersId);
+        const { error: mentalError } = await supabase.from('MentalDisorders').delete().in('Id', mentalIdsToDelete);
+        if (mentalError) throw new Error(`Lỗi khi xóa MentalDisorders: ${mentalError.message}`);
+    }
+    const { error: specLinkError } = await supabase.from('MedicalHistorySpecificMentalDisorder').delete().eq('MedicalHistoriesId', Id);
+    if (specLinkError) throw new Error(`Lỗi khi xóa liên kết MentalDisorders: ${specLinkError.message}`);
+
+    // Xóa MedicalHistory
     const { error } = await supabase.from('MedicalHistories').delete().eq('Id', Id);
-    if (error) throw new Error(error.message);
-};  
+    if (error) throw new Error(`Lỗi khi xóa MedicalHistory: ${error.message}`);
+};
