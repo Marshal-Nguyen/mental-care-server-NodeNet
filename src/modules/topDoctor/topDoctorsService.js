@@ -15,7 +15,6 @@ const getTopDoctors = async (startDate, endDate) => {
             `)
             .gte('Date', startDate)
             .lte('Date', endDate)
-            .eq('Status', 'CheckOut');
 
         if (error) {
             throw new Error(`Lỗi truy vấn Supabase: ${error.message}`);
