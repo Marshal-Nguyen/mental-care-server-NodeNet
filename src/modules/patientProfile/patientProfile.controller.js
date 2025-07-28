@@ -83,9 +83,10 @@ exports.deletePatientProfile = async (req, res) => {
 
 exports.getPatientStatistics = async (req, res) => {
     try {
-        const stats = await patientProfileService.getPatientStatistics();
+        const { startDate, endDate } = req.query;
+        const stats = await patientProfileService.getPatientStatistics(startDate, endDate);
         res.json(stats);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(400).json({ error: error.message });
     }
 };

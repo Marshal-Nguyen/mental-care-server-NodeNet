@@ -10,6 +10,7 @@ router.get('/patient-profiles/:id', authMiddleware, restrictTo('Doctor', 'User',
 router.post('/patient-profiles', authMiddleware, restrictTo('User', 'Manager'), patientProfileController.createPatientProfile);
 router.put('/patient-profiles/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.updatePatientProfile);
 router.delete('/patient-profiles/:id', authMiddleware, restrictTo('Manager'), patientProfileController.deletePatientProfile);
-router.get('/patient-statistics', authMiddleware, restrictTo('Manager'), patientProfileController.getPatientStatistics);
+router.get('/patient-statistics', patientProfileController.getPatientStatistics);
+// router.get('/patient-statistics', authMiddleware, restrictTo('Manager'), patientProfileController.getPatientStatistics);
 
 module.exports = router;

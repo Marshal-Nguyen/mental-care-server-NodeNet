@@ -51,7 +51,6 @@ exports.searchPatientProfilesByName = async (fullName = '', pageIndex = 1, pageS
     const validSortOrders = ['asc', 'desc'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'FullName';
     const order = validSortOrders.includes(sortOrder) ? sortOrder : 'asc';
-
     const query = supabase
         .from('PatientProfiles')
         .select(`
@@ -157,24 +156,50 @@ exports.deletePatientProfile = async (id) => {
     return data[0];
 };
 
-exports.getPatientStatistics = async () => {
-    const currentDate = new Date();
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
+exports.getPatientStatistics = async (startDate, endDate) => {
+    // Validate input dates
+    if (!startDate || !endDate) {
+        throw new Error('startDate and endDate are required');
+    }
 
-    // Số người dùng đăng ký tháng này
-    const { count: registeredThisMonth } = await supabase
+    // Parse and validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime())) {
+        throw new Error('Invalid startDate format. Use YYYY-MM-DD');
+    }
+    if (isNaN(end.getTime())) {
+        throw new Error('Invalid endDate format. Use YYYY-MM-DD');
+    }
+
+    // Set endDate to end of the day
+    const endOfDay = new Date(end);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Ensure endDate is after startDate
+    if (endOfDay < start) {
+        throw new Error('endDate must be after startDate');
+    }
+
+    // Số người dùng đăng ký trong khoảng thời gian
+    const { count: registeredInPeriod, error: countError } = await supabase
         .from('PatientProfiles')
         .select('*', { count: 'exact' })
-        .gte('CreatedAt', startOfMonth.toISOString())
-        .lte('CreatedAt', endOfMonth.toISOString());
+        .gte('CreatedAt', start.toISOString())
+        .lte('CreatedAt', endOfDay.toISOString());
+
+    if (countError) throw new Error(countError.message);
 
     // Số lượng giới tính
-    const { data: genderData } = await supabase
+    const { data: genderData, error: genderError } = await supabase
         .from('PatientProfiles')
         .select('Gender')
-        .gte('CreatedAt', startOfMonth.toISOString())
-        .lte('CreatedAt', endOfMonth.toISOString());
+        .gte('CreatedAt', start.toISOString())
+        .lte('CreatedAt', endOfDay.toISOString());
+
+    if (genderError) throw new Error(genderError.message);
+
     const genderStats = {
         male: genderData.filter(p => p.Gender === 'Male').length,
         female: genderData.filter(p => p.Gender === 'Female').length,
@@ -182,12 +207,14 @@ exports.getPatientStatistics = async () => {
     };
 
     // Tổng số người
-    const { count: totalCount } = await supabase
+    const { count: totalCount, error: totalCountError } = await supabase
         .from('PatientProfiles')
         .select('*', { count: 'exact' });
 
+    if (totalCountError) throw new Error(totalCountError.message);
+
     return {
-        registeredThisMonth: registeredThisMonth || 0,
+        registeredInPeriod: registeredInPeriod || 0,
         genderStats,
         totalCount: totalCount || 0,
     };
