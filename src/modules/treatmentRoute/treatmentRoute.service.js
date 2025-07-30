@@ -190,23 +190,52 @@ class TreatmentRouteService {
     }
   }
 
-  // Cập nhật lộ trình điều trị
+  // Cập nhật lộ trình điều trị (đè lên hoàn toàn)
   async updateTreatmentRoute(id, updateData) {
     try {
-      // Cập nhật TreatmentSession
+      // Validate UUID format
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+      if (!uuidRegex.test(id)) {
+        throw new Error(`Invalid UUID format for id: ${id}`);
+      }
+
+      console.log("Updating treatment route with ID:", id);
+      console.log("Update data:", JSON.stringify(updateData, null, 2));
+
+      // Kiểm tra TreatmentSession có tồn tại không
+      const { data: existingSession, error: checkError } = await supabase
+        .from("TreatmentSessions")
+        .select("Id")
+        .eq("Id", id)
+        .single();
+
+      if (checkError) {
+        if (checkError.code === "PGRST116") {
+          return null; // Không tìm thấy
+        }
+        throw checkError;
+      }
+
+      // XÓA TẤT CẢ ACTIONS CŨ TRƯỚC
+      const { error: deleteActionsError } = await supabase
+        .from("Actions")
+        .delete()
+        .eq("TreatmentSessionId", id);
+
+      if (deleteActionsError) {
+        throw deleteActionsError;
+      }
+
+      // CẬP NHẬT TREATMENT SESSION (đè lên hoàn toàn)
       const updateFields = {
+        PatientId: updateData.patientId, // Có thể thay đổi patient
+        DoctorId: updateData.doctorId,
+        Date: updateData.date ? new Date(updateData.date) : new Date(),
+        Status: updateData.status || "pending",
         LastModified: new Date(),
       };
-
-      if (updateData.doctorId) {
-        updateFields.DoctorId = updateData.doctorId;
-      }
-      if (updateData.date) {
-        updateFields.Date = new Date(updateData.date);
-      }
-      if (updateData.status) {
-        updateFields.Status = updateData.status;
-      }
 
       const { data: updatedSession, error: sessionError } = await supabase
         .from("TreatmentSessions")
@@ -216,56 +245,38 @@ class TreatmentRouteService {
         .single();
 
       if (sessionError) {
-        if (sessionError.code === "PGRST116") {
-          return null; // Không tìm thấy
-        }
         throw sessionError;
       }
 
-      // Xử lý actions nếu có
-      let updatedActions = [];
+      // TẠO LẠI TẤT CẢ ACTIONS MỚI
+      let newActions = [];
       if (updateData.actions && updateData.actions.length > 0) {
         for (const action of updateData.actions) {
-          if (action.id) {
-            // Cập nhật action đã tồn tại
-            const { data: updated, error: updateError } = await supabase
-              .from("Actions")
-              .update({
-                ActionName: action.actionName,
-                TimePeriodsId: action.timePeriodsId,
-                Status: action.status || "not_started",
-                LastModified: new Date(),
-              })
-              .eq("Id", action.id)
-              .eq("TreatmentSessionId", id)
-              .select()
-              .single();
-
-            if (updateError) {
-              throw updateError;
-            }
-            updatedActions.push(updated);
-          } else {
-            // Tạo action mới
-            const { data: created, error: createError } = await supabase
-              .from("Actions")
-              .insert({
-                Id: uuidv4(),
-                TreatmentSessionId: id,
-                TimePeriodsId: action.timePeriodsId,
-                ActionName: action.actionName,
-                Status: action.status || "not_started",
-                CreatedAt: new Date(),
-                LastModified: new Date(),
-              })
-              .select()
-              .single();
-
-            if (createError) {
-              throw createError;
-            }
-            updatedActions.push(created);
+          // Validate action UUIDs
+          if (action.timePeriodsId && !uuidRegex.test(action.timePeriodsId)) {
+            throw new Error(
+              `Invalid UUID format for action.timePeriodsId: ${action.timePeriodsId}`
+            );
           }
+
+          const { data: created, error: createError } = await supabase
+            .from("Actions")
+            .insert({
+              Id: uuidv4(),
+              TreatmentSessionId: id,
+              TimePeriodsId: action.timePeriodsId,
+              ActionName: action.actionName,
+              Status: action.status || "not_started",
+              CreatedAt: new Date(),
+              LastModified: new Date(),
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            throw createError;
+          }
+          newActions.push(created);
         }
       }
 
@@ -399,6 +410,92 @@ class TreatmentRouteService {
       return data || [];
     } catch (error) {
       console.error("Error in getTimePeriods service:", error);
+      throw error;
+    }
+  }
+
+  // Tự động xóa các treatment đã quá 5 ngày
+  async autoDeleteTreatment() {
+    try {
+      // Tính ngày 5 ngày trước
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+      console.log("Checking treatments older than:", fiveDaysAgo);
+
+      // Tìm các TreatmentSessions quá 5 ngày
+      const { data: oldSessions, error: findError } = await supabase
+        .from("TreatmentSessions")
+        .select("Id, Date, PatientId, DoctorId")
+        .lt("Date", fiveDaysAgo.toISOString());
+
+      if (findError) {
+        throw findError;
+      }
+
+      if (!oldSessions || oldSessions.length === 0) {
+        return {
+          message: "Không có treatment nào cần xóa",
+          deletedCount: 0,
+          deletedSessions: [],
+        };
+      }
+
+      console.log(`Found ${oldSessions.length} old sessions to delete`);
+
+      const deletedSessions = [];
+      let deletedCount = 0;
+
+      // Xóa từng session và các actions liên quan
+      for (const session of oldSessions) {
+        try {
+          // Xóa actions trước
+          const { error: actionsError } = await supabase
+            .from("Actions")
+            .delete()
+            .eq("TreatmentSessionId", session.Id);
+
+          if (actionsError) {
+            console.error(
+              `Error deleting actions for session ${session.Id}:`,
+              actionsError
+            );
+            continue;
+          }
+
+          // Xóa treatment session
+          const { error: sessionError } = await supabase
+            .from("TreatmentSessions")
+            .delete()
+            .eq("Id", session.Id);
+
+          if (sessionError) {
+            console.error(
+              `Error deleting session ${session.Id}:`,
+              sessionError
+            );
+            continue;
+          }
+
+          deletedSessions.push(session);
+          deletedCount++;
+          console.log(`Deleted session: ${session.Id}`);
+        } catch (sessionDeleteError) {
+          console.error(
+            `Error processing session ${session.Id}:`,
+            sessionDeleteError
+          );
+        }
+      }
+
+      return {
+        message: `Đã xóa ${deletedCount} treatment sessions quá 5 ngày`,
+        deletedCount,
+        deletedSessions,
+        totalFound: oldSessions.length,
+      };
+    } catch (error) {
+      console.error("Error in autoDeleteTreatment service:", error);
       throw error;
     }
   }

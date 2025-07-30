@@ -224,6 +224,30 @@ class TreatmentRouteController {
       });
     }
   }
+
+  // Tự động xóa các treatment quá 5 ngày
+  async autoDeleteTreatment(req, res) {
+    try {
+      const result = await treatmentRouteService.autoDeleteTreatment();
+
+      return res.status(200).json({
+        success: true,
+        message: result.message,
+        data: {
+          deletedCount: result.deletedCount,
+          totalFound: result.totalFound,
+          deletedSessions: result.deletedSessions,
+        },
+      });
+    } catch (error) {
+      console.error("Error in auto delete treatment:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi tự động xóa treatment",
+        error: error.message,
+      });
+    }
+  }
 }
 
 module.exports = new TreatmentRouteController();

@@ -6,6 +6,19 @@ router.get(
   "/treatment-routes/all",
   treatmentRouteController.getTreatmentRoutes
 );
+
+// Tự động xóa các treatment quá 5 ngày (đặt trước các route có :id)
+router.delete(
+  "/treatment-routes/auto-delete",
+  treatmentRouteController.autoDeleteTreatment
+);
+
+// Cập nhật trạng thái action (đặt trước các route có :id)
+router.put(
+  "/treatment-routes/actions/:actionId/status",
+  treatmentRouteController.updateActionStatus
+);
+
 // Tạo lộ trình điều trị mới
 router.post("/treatment-routes", treatmentRouteController.createTreatmentRoute);
 
@@ -25,12 +38,6 @@ router.put(
 router.delete(
   "/treatment-routes/:id",
   treatmentRouteController.deleteTreatmentRoute
-);
-
-// Cập nhật trạng thái action
-router.patch(
-  "/treatment-routes/actions/:actionId/status",
-  treatmentRouteController.updateActionStatus
 );
 
 module.exports = router;
