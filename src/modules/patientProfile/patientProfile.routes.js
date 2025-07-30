@@ -8,6 +8,7 @@ router.get('/patient-profiles', authMiddleware, restrictTo('Doctor', 'User', 'Ma
 router.get('/patient-profiles/search', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.searchPatientProfilesByName);
 router.get(
   "/patient-profiles/:id",
+  authMiddleware,
   restrictTo("Doctor", "User", "Manager"),
   patientProfileController.getPatientProfileById
 );
