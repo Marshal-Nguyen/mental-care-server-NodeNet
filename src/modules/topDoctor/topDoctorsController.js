@@ -18,5 +18,28 @@ const getTopDoctors = async (req, res) => {
         res.status(500).json({ error: 'Lỗi server nội bộ', details: error.message });
     }
 };
+const getBookingStats = async (req, res) => {
+    const { doctorId, month, year } = req.query;
 
-module.exports = { getTopDoctors };
+    if (!doctorId || !month || !year) {
+        return res.status(400).json({
+            success: false,
+            message: "Thiếu doctorId, month hoặc year",
+        });
+    }
+
+    try {
+        const stats = await topDoctorsService.getBookingStats(doctorId, month, year);
+        return res.status(200).json({
+            success: true,
+            data: stats,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "Lỗi server",
+            error: err.message,
+        });
+    }
+};
+module.exports = { getTopDoctors, getBookingStats };

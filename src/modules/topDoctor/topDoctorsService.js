@@ -45,5 +45,32 @@ const getTopDoctors = async (startDate, endDate) => {
         throw error;
     }
 };
+const getBookingStats = async (doctorId, month, year) => {
+    const startDate = `${year}-${month.padStart(2, "0")}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split("T")[0]; // Ngày cuối tháng
 
-module.exports = { getTopDoctors };
+    try {
+        const { data: bookings, error } = await supabase
+            .from("Bookings")
+            .select("Price")
+            .eq("DoctorId", doctorId)
+            .gte("Date", startDate)
+            .lte("Date", endDate)
+
+        if (error) throw error;
+
+        const totalBookings = bookings.length;
+        const totalAmount = bookings.reduce((sum, booking) => sum + booking.Price, 0);
+
+        return {
+            doctorId,
+            month,
+            year,
+            totalBookings,
+            totalAmount,
+        };
+    } catch (err) {
+        throw new Error(`Lỗi khi lấy thống kê: ${err.message}`);
+    }
+};
+module.exports = { getTopDoctors, getBookingStats };
