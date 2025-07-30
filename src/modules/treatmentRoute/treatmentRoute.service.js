@@ -142,13 +142,10 @@ class TreatmentRouteService {
     }
   }
 
-  // Lấy chi tiết lộ trình điều trị theo ID
-  async getTreatmentRouteById(id) {
+  // Lấy chi tiết lộ trình điều trị theo ID hoặc patientId
+  async getTreatmentRouteById(id, patientId = null) {
     try {
-      const { data, error } = await supabase
-        .from("TreatmentSessions")
-        .select(
-          `
+      let query = supabase.from("TreatmentSessions").select(`
           *,
           Patient:PatientProfiles(Id, FullName, Email),
           Doctor:DoctorProfiles(Id, FullName, Email),
@@ -158,20 +155,35 @@ class TreatmentRouteService {
             Status,
             TimePeriods:TimePeriodsId(Id, PeriodName)
           )
-        `
-        )
-        .eq("Id", id)
-        .single();
+        `);
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          // No rows returned
-          return null;
+      // Nếu có patientId thì lấy theo patientId, ngược lại lấy theo id
+      if (patientId) {
+        query = query.eq("PatientId", patientId);
+
+        // Lấy multiple records và sort theo thời gian mới nhất
+        const { data, error } = await query.order("CreatedAt", {
+          ascending: false,
+        });
+
+        if (error) {
+          throw error;
         }
-        throw error;
-      }
 
-      return data;
+        return data || []; // Trả về array
+      } else {
+        // Lấy theo ID (single record)
+        const { data, error } = await query.eq("Id", id).single();
+
+        if (error) {
+          if (error.code === "PGRST116") {
+            return null;
+          }
+          throw error;
+        }
+
+        return data; // Trả về object
+      }
     } catch (error) {
       console.error("Error in getTreatmentRouteById service:", error);
       throw error;
@@ -182,15 +194,84 @@ class TreatmentRouteService {
   async updateTreatmentRoute(id, updateData) {
     try {
       // Cập nhật TreatmentSession
+      const updateFields = {
+        LastModified: new Date(),
+      };
+
+      if (updateData.doctorId) {
+        updateFields.DoctorId = updateData.doctorId;
+      }
+      if (updateData.date) {
+        updateFields.Date = new Date(updateData.date);
+      }
+      if (updateData.status) {
+        updateFields.Status = updateData.status;
+      }
+
       const { data: updatedSession, error: sessionError } = await supabase
         .from("TreatmentSessions")
-        .update({
-          // DoctorId: updateData.doctorId,
-          Date: updateData.date ? new Date(updateData.date) : undefined,
-          Status: updateData.status,
-          LastModified: new Date(),
-        })
+        .update(updateFields)
         .eq("Id", id)
+        .select("Id")
+        .single();
+
+      if (sessionError) {
+        if (sessionError.code === "PGRST116") {
+          return null; // Không tìm thấy
+        }
+        throw sessionError;
+      }
+
+      // Xử lý actions nếu có
+      let updatedActions = [];
+      if (updateData.actions && updateData.actions.length > 0) {
+        for (const action of updateData.actions) {
+          if (action.id) {
+            // Cập nhật action đã tồn tại
+            const { data: updated, error: updateError } = await supabase
+              .from("Actions")
+              .update({
+                ActionName: action.actionName,
+                TimePeriodsId: action.timePeriodsId,
+                Status: action.status || "not_started",
+                LastModified: new Date(),
+              })
+              .eq("Id", action.id)
+              .eq("TreatmentSessionId", id)
+              .select()
+              .single();
+
+            if (updateError) {
+              throw updateError;
+            }
+            updatedActions.push(updated);
+          } else {
+            // Tạo action mới
+            const { data: created, error: createError } = await supabase
+              .from("Actions")
+              .insert({
+                Id: uuidv4(),
+                TreatmentSessionId: id,
+                TimePeriodsId: action.timePeriodsId,
+                ActionName: action.actionName,
+                Status: action.status || "not_started",
+                CreatedAt: new Date(),
+                LastModified: new Date(),
+              })
+              .select()
+              .single();
+
+            if (createError) {
+              throw createError;
+            }
+            updatedActions.push(created);
+          }
+        }
+      }
+
+      // Lấy dữ liệu đầy đủ sau khi cập nhật
+      const { data: finalData, error: finalError } = await supabase
+        .from("TreatmentSessions")
         .select(
           `
           *,
@@ -204,16 +285,14 @@ class TreatmentRouteService {
           )
         `
         )
+        .eq("Id", id)
         .single();
 
-      if (sessionError) {
-        if (sessionError.code === "PGRST116") {
-          return null; // Không tìm thấy
-        }
-        throw sessionError;
+      if (finalError) {
+        throw finalError;
       }
 
-      return updatedSession;
+      return finalData;
     } catch (error) {
       console.error("Error in updateTreatmentRoute service:", error);
       throw error;
