@@ -215,94 +215,63 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
 
     // Lấy thông tin bệnh nhân với xử lý lỗi
     let profile = {};
+    let patientName = "Unknown";
+    let birthDate = null;
+    let patientAge = 0;
 
-    // Lấy thông tin bệnh nhân
-    const { data: profileData, error: profileError } = await supabase
-      .from("PatientProfiles")
-      .select(
-        `
-        Id,
-        FullName,
-        Gender,
-        BirthDate,
-        PersonalityTraits,
-        Allergies,
-        EducationLevel,
-        JobId
-      `
-      )
-      .eq("Id", patientId)
-      .single();
-
-    if (profileError || !profileData) {
-      return res.status(404).json({ error: "Không tìm thấy hồ sơ bệnh nhân" });
+    try {
+      const profileResponse = await axios.get(
+        `https://mental-care-server-nodenet.onrender.com/api/patient-profiles/${patientId}`
+      );
+      profile = profileResponse.data || {};
+      patientName = profile.FullName || "Unknown";
+      birthDate = profile.BirthDate || null;
+      patientAge = birthDate ? calculateAge(birthDate) : 0;
+    } catch (error) {
+      console.warn("Failed to fetch patient profile:", error.message);
     }
 
-    const patientName = profileData.FullName || "Unknown";
-    const birthDate = profileData.BirthDate || null;
-    const patientAge = birthDate ? calculateAge(birthDate) : 0;
-
-    // Lấy thông tin công việc
+    // Lấy JobTitle và IndustryName với xử lý lỗi
     let jobTitle = "Unknown";
     let industryName = "Unknown";
-    if (profileData.JobId) {
-      const { data: jobData, error: jobError } = await supabase
-        .from("Jobs")
-        .select(
-          `
-          JobTitle,
-          IndustryId,
-          Industries (
-            IndustryName
-          )
-        `
-        )
-        .eq("Id", profileData.JobId)
-        .single();
-      if (!jobError && jobData) {
-        jobTitle = jobData.JobTitle || "Unknown";
-        industryName = jobData.Industries?.IndustryName || "Unknown";
-      }
+
+    try {
+      const jobResponse = await axios.get(
+        `https://mental-care-server-nodenet.onrender.com/api/patient-job-info/${patientId}`
+      );
+      const jobInfo = jobResponse.data || {};
+      jobTitle = jobInfo.JobTitle || "Unknown";
+      industryName = jobInfo.IndustryName || "Unknown";
+    } catch (error) {
+      console.warn("Failed to fetch patient job info:", error.message);
     }
 
-    // Lấy mục tiêu cải thiện
+    // Lấy ImprovementGoals với xử lý lỗi
     let improvementGoals = [];
-    const { data: improvementData, error: improvementError } = await supabase
-      .from("PatientImprovement")
-      .select(
-        `
-        ImprovementGoals (
-          Name
-        )
-      `
-      )
-      .eq("PatientId", patientId)
-      .order("Date", { ascending: false });
 
-    if (!improvementError && improvementData) {
-      improvementGoals = improvementData
-        .map((item) => item.ImprovementGoals?.Name)
-        .filter(Boolean);
+    try {
+      const improvementResponse = await axios.get(
+        `https://mental-care-server-nodenet.onrender.com/api/patient-improvement/${patientId}`
+      );
+      improvementGoals = Array.isArray(improvementResponse.data)
+        ? improvementResponse.data
+        : [];
+    } catch (error) {
+      console.warn("Failed to fetch patient improvement goals:", error.message);
     }
 
-    // Lấy cảm xúc gần đây
+    // Lấy EmotionSelections với xử lý lỗi
     let emotionSelections = [];
-    const { data: emotionData, error: emotionError } = await supabase
-      .from("DailyEmotions")
-      .select(
-        `
-        Emotions (
-          Name
-        )
-      `
-      )
-      .eq("PatientId", patientId)
-      .order("Date", { ascending: false });
 
-    if (!emotionError && emotionData) {
-      emotionSelections = emotionData
-        .map((item) => item.Emotions?.Name)
-        .filter(Boolean);
+    try {
+      const emotionResponse = await axios.get(
+        `https://mental-care-server-nodenet.onrender.com/api/patient-emotions/${patientId}`
+      );
+      emotionSelections = Array.isArray(emotionResponse.data)
+        ? emotionResponse.data
+        : [];
+    } catch (error) {
+      console.warn("Failed to fetch patient emotions:", error.message);
     }
 
     // Tính tổng điểm để xác định SeverityLevel
@@ -322,13 +291,13 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
                 score.Stress,
                 {
                   FullName: patientName,
-                  Gender: profileData.Gender || "Unknown",
+                  Gender: profile.Gender || "Unknown",
                   BirthDate: birthDate || "Unknown",
                   JobTitle: jobTitle,
-                  EducationLevel: profileData.EducationLevel || "Unknown",
+                  EducationLevel: profile.EducationLevel || "Unknown",
                   IndustryName: industryName,
-                  PersonalityTraits: profileData.PersonalityTraits || "Unknown",
-                  Allergies: profileData.Allergies || "Không rõ",
+                  PersonalityTraits: profile.PersonalityTraits || "Unknown",
+                  Allergies: profile.Allergies || "Không rõ",
                 },
                 {
                   ImprovementGoals: improvementGoals,
@@ -489,19 +458,10 @@ router.get(
       }
 
       // Lấy thông tin bệnh nhân
-      const { data: profile } = await supabase
-        .from("PatientProfiles")
-        .select(
-          `
-          Id,
-          FullName,
-          Gender,
-          BirthDate
-        `
-        )
-        .eq("Id", data.PatientId)
-        .single();
-
+      const profileResponse = await axios.get(
+        `https://mental-care-server-nodenet.onrender.com/api/patient-profiles/${data.PatientId}`
+      );
+      const profile = profileResponse.data;
       const patientName = profile.FullName;
       const birthDate = profile.BirthDate;
       const patientAge = calculateAge(birthDate);
