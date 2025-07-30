@@ -40,4 +40,10 @@ router.delete(
   treatmentRouteController.deleteTreatmentRoute
 );
 
+// Lấy thống kê phần trăm hoàn thành action (đặt trước route có :id)
+router.get(
+  "/treatment-routes/stats/completion",
+  treatmentRouteController.getActionCompletionStats
+);
+
 module.exports = router;

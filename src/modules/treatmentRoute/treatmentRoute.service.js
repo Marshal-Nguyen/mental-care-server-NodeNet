@@ -499,6 +499,109 @@ class TreatmentRouteService {
       throw error;
     }
   }
+
+  // Tính phần trăm action hoàn thành theo ngày
+  async getActionCompletionStats(patientId = null, startDate = null, endDate = null) {
+    try {
+      // Thiết lập khoảng thời gian mặc định (7 ngày gần đây)
+      const end = endDate ? new Date(endDate) : new Date();
+      const start = startDate ? new Date(startDate) : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      console.log("Getting stats from:", start, "to:", end);
+
+      // Query để lấy treatment sessions trong khoảng thời gian
+      let query = supabase
+        .from("TreatmentSessions")
+        .select(`
+          Id,
+          Date,
+          PatientId,
+          Actions(Id, Status)
+        `)
+        .gte("Date", start.toISOString())
+        .lte("Date", end.toISOString())
+        .order("Date", { ascending: true });
+
+      // Filter theo patientId nếu có
+      if (patientId) {
+        query = query.eq("PatientId", patientId);
+      }
+
+      const { data: sessions, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      // Xử lý dữ liệu để tính phần trăm
+      const statsMap = new Map();
+
+      sessions.forEach(session => {
+        const sessionDate = new Date(session.Date);
+        const dateKey = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        // Tính phần trăm hoàn thành cho session này
+        const totalActions = session.Actions.length;
+        const completedActions = session.Actions.filter(action => 
+          action.Status === 'completed' || action.Status === 'complete'
+        ).length;
+        
+        const percentage = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+
+        // Lấy tên ngày (Mon, Tue, Wed, ...)
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayName = dayNames[sessionDate.getDay()];
+
+        // Lưu vào map (nếu có nhiều session cùng ngày thì lấy trung bình)
+        if (statsMap.has(dateKey)) {
+          const existing = statsMap.get(dateKey);
+          existing.sessions.push({
+            sessionId: session.Id,
+            percentage: percentage
+          });
+          // Tính lại phần trăm trung bình
+          const avgPercentage = Math.round(
+            existing.sessions.reduce((sum, s) => sum + s.percentage, 0) / existing.sessions.length
+          );
+          existing.percentage = avgPercentage;
+        } else {
+          statsMap.set(dateKey, {
+            day: dayName,
+            fullDate: dateKey,
+            percentage: percentage,
+            sessionId: session.Id,
+            sessions: [{
+              sessionId: session.Id,
+              percentage: percentage
+            }]
+          });
+        }
+      });
+
+      // Chuyển Map thành Array và sắp xếp theo ngày
+      const bars = Array.from(statsMap.values())
+        .map(item => ({
+          day: item.day,
+          fullDate: item.fullDate,
+          percentage: item.percentage,
+          sessionId: item.sessionId
+        }))
+        .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+
+      return {
+        bars: bars,
+        period: {
+          startDate: start.toISOString().split('T')[0],
+          endDate: end.toISOString().split('T')[0]
+        },
+        totalDays: bars.length
+      };
+
+    } catch (error) {
+      console.error("Error in getActionCompletionStats service:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new TreatmentRouteService();

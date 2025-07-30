@@ -248,6 +248,33 @@ class TreatmentRouteController {
       });
     }
   }
+
+  // Lấy thống kê phần trăm hoàn thành action
+  async getActionCompletionStats(req, res) {
+    try {
+      const { patientId, startDate, endDate } = req.query;
+
+      const stats = await treatmentRouteService.getActionCompletionStats(
+        patientId, 
+        startDate, 
+        endDate
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Lấy thống kê hoàn thành action thành công",
+        data: stats
+      });
+
+    } catch (error) {
+      console.error("Error getting action completion stats:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi lấy thống kê hoàn thành action",
+        error: error.message,
+      });
+    }
+  }
 }
 
 module.exports = new TreatmentRouteController();
