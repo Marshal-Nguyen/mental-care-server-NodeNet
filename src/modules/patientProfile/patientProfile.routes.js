@@ -6,7 +6,11 @@ const { authMiddleware, restrictTo } = require('../../middlewares/auth.middlewar
 // router.get('/patient-profiles', patientProfileController.getAllPatientProfiles);
 router.get('/patient-profiles', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.getAllPatientProfiles);
 router.get('/patient-profiles/search', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.searchPatientProfilesByName);
-router.get('/patient-profiles/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.getPatientProfileById);
+router.get(
+  "/patient-profiles/:id",
+  restrictTo("Doctor", "User", "Manager"),
+  patientProfileController.getPatientProfileById
+);
 router.post('/patient-profiles', authMiddleware, restrictTo('User', 'Manager'), patientProfileController.createPatientProfile);
 router.put('/patient-profiles/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), patientProfileController.updatePatientProfile);
 router.delete('/patient-profiles/:id', authMiddleware, restrictTo('Manager'), patientProfileController.deletePatientProfile);

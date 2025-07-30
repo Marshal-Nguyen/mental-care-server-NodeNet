@@ -214,19 +214,32 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
     });
 
     // Lấy thông tin bệnh nhân với xử lý lỗi
+
     let profile = {};
     let patientName = "Unknown";
     let birthDate = null;
     let patientAge = 0;
 
     try {
-      const profileResponse = await axios.get(
-        `https://mental-care-server-nodenet.onrender.com/api/patient-profiles/${patientId}`
-      );
-      profile = profileResponse.data || {};
+      const { data: profileData, error: profileError } = await supabase
+        .from("PatientProfiles")
+        .select("FullName, Gender, BirthDate, Allergies, PersonalityTraits")
+        .eq("Id", patientId)
+        .single();
+
+      if (profileError || !profileData) {
+        console.warn(
+          "Failed to fetch patient profile:",
+          profileError?.message || "No data"
+        );
+        throw new Error("Patient profile not found");
+      }
+
+      profile = profileData;
       patientName = profile.FullName || "Unknown";
       birthDate = profile.BirthDate || null;
       patientAge = birthDate ? calculateAge(birthDate) : 0;
+      console.log("Patient profile fetched successfully:", profile);
     } catch (error) {
       console.warn("Failed to fetch patient profile:", error.message);
     }
@@ -242,6 +255,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       const jobInfo = jobResponse.data || {};
       jobTitle = jobInfo.JobTitle || "Unknown";
       industryName = jobInfo.IndustryName || "Unknown";
+      console.log("Patient job info fetched successfully:", jobInfo);
     } catch (error) {
       console.warn("Failed to fetch patient job info:", error.message);
     }
@@ -256,6 +270,10 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       improvementGoals = Array.isArray(improvementResponse.data)
         ? improvementResponse.data
         : [];
+      console.log(
+        "Patient improvement goals fetched successfully:",
+        improvementGoals
+      );
     } catch (error) {
       console.warn("Failed to fetch patient improvement goals:", error.message);
     }
@@ -270,6 +288,7 @@ router.post("/tests/test-results", requireUser, async (req, res) => {
       emotionSelections = Array.isArray(emotionResponse.data)
         ? emotionResponse.data
         : [];
+      console.log("Patient emotions fetched successfully:", emotionSelections);
     } catch (error) {
       console.warn("Failed to fetch patient emotions:", error.message);
     }
