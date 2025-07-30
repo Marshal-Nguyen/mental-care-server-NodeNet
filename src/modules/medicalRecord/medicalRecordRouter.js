@@ -3,6 +3,7 @@ const router = express.Router();
 const medicalRecordController = require('./medicalRecordController');
 const { authMiddleware, restrictTo } = require('../../middlewares/auth.middleware');
 
+
 router.post('/medical-records', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.createMedicalRecord);
 router.get('/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.getMedicalRecord);
 router.get('/medical-records/:patientId', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.getMedicalRecordsByPatientId);
@@ -10,5 +11,6 @@ router.get('/medical-records/doctor/:doctorId', authMiddleware, restrictTo('Doct
 router.put('/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.updateMedicalRecord);
 router.put('/medical-records/:patientId', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.updateMedicalRecordsByPatientId);
 router.delete('/medical-records/:id', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.deleteMedicalRecord);
+router.get('/medical-records/booking/:bookingId', authMiddleware, restrictTo('Doctor', 'User', 'Manager'), medicalRecordController.getMedicalRecordByBookingId);
 
 module.exports = router;

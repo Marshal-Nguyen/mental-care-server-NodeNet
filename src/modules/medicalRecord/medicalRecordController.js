@@ -18,6 +18,15 @@ exports.getMedicalRecord = async (req, res) => {
     }
 };
 
+exports.getMedicalRecordByBookingId = async (req, res) => {
+    try {
+        const result = await medicalRecordService.getMedicalRecordByBookingId(req.params.bookingId);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
 exports.getMedicalRecordsByPatientId = async (req, res) => {
     try {
         const result = await medicalRecordService.getMedicalRecordsByPatientId(req.params.patientId);

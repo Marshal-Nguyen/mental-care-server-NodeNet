@@ -117,6 +117,40 @@ exports.getMedicalRecord = async (Id) => {
     };
 };
 
+exports.getMedicalRecordByBookingId = async (bookingId) => {
+    const { data: record, error: recordError } = await supabase
+        .from('MedicalRecords')
+        .select('*')
+        .eq('BookingId', bookingId)
+        .single();
+    if (recordError) throw new Error(`Fetch record by bookingId error: ${recordError.message}`);
+
+    const { data: links, error: linkError } = await supabase
+        .from('MedicalRecordSpecificMentalDisorder')
+        .select('SpecificMentalDisordersId')
+        .eq('MedicalRecordsId', record.Id);
+    if (linkError) throw new Error(`Fetch links error: ${linkError.message}`);
+
+    let mentalDisorders = [];
+    if (links && links.length > 0) {
+        const mentalDisorderIds = links.map(link => link.SpecificMentalDisordersId);
+        const { data: mentalData, error: mentalError } = await supabase
+            .from('MentalDisorders')
+            .select('*')
+            .in('Id', mentalDisorderIds);
+        if (mentalError) throw new Error(`Fetch mental disorders error: ${mentalError.message}`);
+        mentalDisorders = mentalData;
+    }
+
+    return {
+        ...record,
+        MedicalRecordSpecificMentalDisorder: links.map(link => ({
+            SpecificMentalDisordersId: link.SpecificMentalDisordersId,
+            MentalDisorders: mentalDisorders.find(md => md.Id === link.SpecificMentalDisordersId) || null
+        }))
+    };
+};
+
 exports.getMedicalRecordsByPatientId = async (patientId) => {
     const { data: records, error: recordError } = await supabase
         .from('MedicalRecords')
