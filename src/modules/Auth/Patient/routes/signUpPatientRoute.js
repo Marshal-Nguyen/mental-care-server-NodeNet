@@ -49,6 +49,7 @@ router.post("/auth/signup/patient", async (req, res) => {
         Gender: gender,
         PhoneNumber: phone_number.trim(),
         Email: email.trim(), // Thêm trường Email
+        CreatedAt: new Date().toISOString(),
       });
 
     if (profileErr) throw profileErr;
