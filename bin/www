@@ -8,6 +8,9 @@ var app = require("../app");
 var debug = require("debug")("emo-nodenet:server");
 var http = require("http");
 const getNgrokUrl = require("../src/utils/getNgrokUrl");
+const {
+  initializeTimePeriods,
+} = require("../src/modules/treatmentRoute/initTimePeriods");
 
 /**
  * Get port from environment and store in Express.
@@ -28,6 +31,7 @@ var server = http.createServer(app);
 
 server.listen(port, async () => {
   await getNgrokUrl();
+  await initializeTimePeriods();
 });
 server.on("error", onError);
 server.on("listening", onListening);

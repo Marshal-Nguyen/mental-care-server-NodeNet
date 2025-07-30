@@ -105,6 +105,12 @@ app.use("/api", testResultsRoutes);
 // Top Doctors
 const topDoctorsRoutes = require("./src/modules/topDoctor/topDoctorsRoutes");
 app.use("/api", topDoctorsRoutes);
+// Treatment Route
+const treatmentRouteRoutes = require("./src/modules/treatmentRoute/treatmentRoute.routes");
+app.use("/api", treatmentRouteRoutes);
+// Time Periods
+const timePeriodsRoutes = require("./src/modules/treatmentRoute/timePeriods.routes");
+app.use("/api", timePeriodsRoutes);
 
 // In ra danh sách route để test
 console.log("📚 Danh sách các API đã khai báo:");
