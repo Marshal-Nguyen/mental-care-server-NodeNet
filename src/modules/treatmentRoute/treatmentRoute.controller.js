@@ -71,18 +71,24 @@ class TreatmentRouteController {
   async getTreatmentRouteById(req, res) {
     try {
       const { id } = req.params;
+      const { patientId } = req.query; // Lấy từ query parameter
 
-      if (!id) {
+      if (!id && !patientId) {
         return res.status(400).json({
           success: false,
-          message: "Thiếu ID lộ trình điều trị",
+          message: "Thiếu ID lộ trình điều trị hoặc patientId",
         });
       }
 
-      const treatmentRoute =
-        await treatmentRouteService.getTreatmentRouteById(id);
+      const treatmentRoute = await treatmentRouteService.getTreatmentRouteById(
+        id,
+        patientId
+      );
 
-      if (!treatmentRoute) {
+      if (
+        !treatmentRoute ||
+        (Array.isArray(treatmentRoute) && treatmentRoute.length === 0)
+      ) {
         return res.status(404).json({
           success: false,
           message: "Không tìm thấy lộ trình điều trị",
@@ -91,7 +97,9 @@ class TreatmentRouteController {
 
       return res.status(200).json({
         success: true,
-        message: "Lấy chi tiết lộ trình điều trị thành công",
+        message: patientId
+          ? "Lấy danh sách lộ trình điều trị theo bệnh nhân thành công"
+          : "Lấy chi tiết lộ trình điều trị thành công",
         data: treatmentRoute,
       });
     } catch (error) {
