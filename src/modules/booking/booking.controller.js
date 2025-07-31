@@ -375,7 +375,7 @@ const autoCancelBookings = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `${toCancel.length} booking đã bị huỷ tự động.`,
-      cancelledIds: toCancel,
+      // cancelledIds: toCancel,
     });
   } catch (err) {
     return res.status(500).json({
