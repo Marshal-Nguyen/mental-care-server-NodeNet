@@ -421,7 +421,7 @@ class TreatmentRouteService {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      console.log("Checking treatments older than:", sevenDaysAgo);
+      // console.log("Checking treatments older than:", sevenDaysAgo);
 
       // Tìm các TreatmentSessions quá 7 ngày
       const { data: oldSessions, error: findError } = await supabase
@@ -441,7 +441,7 @@ class TreatmentRouteService {
         };
       }
 
-      console.log(`Found ${oldSessions.length} old sessions to delete`);
+      // console.log(`Found ${oldSessions.length} old sessions to delete`);
 
       const deletedSessions = [];
       let deletedCount = 0;
@@ -479,7 +479,7 @@ class TreatmentRouteService {
 
           deletedSessions.push(session);
           deletedCount++;
-          console.log(`Deleted session: ${session.Id}`);
+          // console.log(`Deleted session: ${session.Id}`);
         } catch (sessionDeleteError) {
           console.error(
             `Error processing session ${session.Id}:`,
@@ -490,9 +490,9 @@ class TreatmentRouteService {
 
       return {
         message: `Đã xóa ${deletedCount} treatment sessions quá 7 ngày`,
-        deletedCount,
-        deletedSessions,
-        totalFound: oldSessions.length,
+        // deletedCount,
+        // deletedSessions,
+        // totalFound: oldSessions.length,
       };
     } catch (error) {
       console.error("Error in autoDeleteTreatment service:", error);
