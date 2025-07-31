@@ -246,43 +246,24 @@ class DoctorScheduleService {
     async updateAvailability(doctorId, day, isAvailable) {
         try {
             if (DateUtils.isPastOrCurrentDate(day)) {
-                throw new ScheduleError('Cannot update availability for past or current date');
+                throw new ScheduleError('Không thể cập nhật trạng thái cho ngày đã qua hoặc hiện tại');
             }
             const selectedDateStr = DateUtils.formatDate(new Date(day));
 
-            const { data: existing, error: fetchError } = await supabase
+            // Cập nhật tất cả slot trong ngày
+            const { error } = await supabase
                 .from('DoctorAvailabilities')
-                .select('Id, IsAvailable')
+                .update({ IsAvailable: isAvailable })
                 .eq('DoctorId', doctorId)
-                .eq('Date', selectedDateStr)
-                .single();
+                .eq('Date', selectedDateStr);
 
-            if (fetchError && fetchError.code !== 'PGRST116') {
-                throw new ScheduleError(`Failed to fetch availability: ${fetchError.message}`);
-            }
-
-            const operation = existing
-                ? supabase
-                    .from('DoctorAvailabilities')
-                    .update({ IsAvailable: isAvailable })
-                    .eq('Id', existing.Id)
-                : supabase
-                    .from('DoctorAvailabilities')
-                    .insert({
-                        DoctorId: doctorId,
-                        Date: selectedDateStr,
-                        StartTime: '08:00',
-                        IsAvailable: isAvailable
-                    });
-
-            const { error } = await operation;
             if (error) {
-                throw new ScheduleError(`Failed to update availability: ${error.message}`);
+                throw new ScheduleError(`Cập nhật trạng thái thất bại: ${error.message}`);
             }
 
-            return { message: 'Availability updated successfully', isAvailable };
+            return { message: 'Cập nhật trạng thái thành công', isAvailable };
         } catch (error) {
-            throw new ScheduleError(`Failed to update availability: ${error.message}`, 'UPDATE_AVAILABILITY_FAILED');
+            throw new ScheduleError(`Cập nhật trạng thái thất bại: ${error.message}`, 'UPDATE_AVAILABILITY_FAILED');
         }
     }
 
