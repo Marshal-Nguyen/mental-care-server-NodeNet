@@ -513,8 +513,6 @@ class TreatmentRouteService {
         ? new Date(startDate)
         : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      console.log("Getting stats from:", start, "to:", end);
-
       // Query để lấy treatment sessions trong khoảng thời gian
       let query = supabase
         .from("TreatmentSessions")
