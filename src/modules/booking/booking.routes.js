@@ -38,7 +38,7 @@ bookingRouter.post(
 bookingRouter.post(
   "/autoCancelBooking",
   // authMiddleware,
-  restrictTo("Doctor", "User", "Manager"),
+  // restrictTo("Doctor", "User", "Manager"),
   bookingController.autoCancelBookings
 );
 
