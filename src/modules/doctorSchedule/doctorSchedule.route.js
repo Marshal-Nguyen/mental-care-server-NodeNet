@@ -16,6 +16,9 @@ const validateCreateSchedule = (req, res, next) => {
 // Định nghĩa các endpoint
 router.post('/doctors/:doctorId/schedule', authMiddleware, restrictTo('Doctor'), validateCreateSchedule, doctorScheduleController.createSchedule);
 router.get('/doctors/:doctorId/:day', doctorScheduleController.getSchedule);
-router.put('/doctors/:doctorId/:day', authMiddleware, restrictTo('Doctor'), doctorScheduleController.updateAvailability);
+router.put('/doctors/:doctorId/:day', doctorScheduleController.updateAvailability);
+// router.post('/doctors/:doctorId/schedule', authMiddleware, restrictTo('Doctor'), validateCreateSchedule, doctorScheduleController.createSchedule);
+// router.get('/doctors/:doctorId/:day', doctorScheduleController.getSchedule);
+// router.put('/doctors/:doctorId/:day', authMiddleware, restrictTo('Doctor'), doctorScheduleController.updateAvailability);
 
 module.exports = router;
