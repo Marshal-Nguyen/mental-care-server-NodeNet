@@ -18,4 +18,4 @@ router.delete('/patient-profiles/:id', authMiddleware, restrictTo('Manager'), pa
 router.get('/patient-statistics', patientProfileController.getPatientStatistics);
 // router.get('/patient-statistics', authMiddleware, restrictTo('Manager'), patientProfileController.getPatientStatistics);
 
-module.exports = router;
+module.exports = router; 
