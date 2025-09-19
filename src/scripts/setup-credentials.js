@@ -1,6 +1,7 @@
 // filepath: scripts/setup-credentials.js
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config();
 
 function setupCredentials() {
   console.log("🔧 Setting up credentials...");
@@ -20,7 +21,7 @@ function setupCredentials() {
   );
 
   // Nếu đã có file credentials, bỏ qua
-  if (fs.existsSync("credentials/rock-park-462512-r1-3a4b9f008157.json")) {
+  if (fs.existsSync("credentials/vigilant-shift-470904-k5-4754ff8eb73a.json")) {
     console.log("✅ Credentials file already exists");
     return;
   }
@@ -72,7 +73,7 @@ function setupCredentials() {
 
   // Viết file credentials
   try {
-    const credentialsPath = "credentials/rock-park-462512-r1-3a4b9f008157.json";
+    const credentialsPath = "credentials/vigilant-shift-470904-k5-4754ff8eb73a.json";
     fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2));
     console.log(
       "✅ Credentials file created successfully at:",
