@@ -3,4 +3,5 @@ node_modules
 .env
 
 /src/generated/prisma
-credentials/rock-park-462512-r1-3a4b9f008157.json
+# Ignore all credentials files
+credentials/*.json

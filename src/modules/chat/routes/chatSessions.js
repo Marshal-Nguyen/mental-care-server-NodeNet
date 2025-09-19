@@ -16,18 +16,18 @@ const ai = new GoogleGenAI({
   project: process.env.GOOGLE_CLOUD_PROJECT || "379308644495",
   location: "us-central1",
 });
-const model =
-  "projects/379308644495/locations/us-central1/endpoints/7375379963098169344";
 
+const model =
+  "projects/1070376393762/locations/us-central1/endpoints/2038893680617586688";
 const generationConfig = {
   maxOutputTokens: 8192,
   temperature: 1,
   topP: 0.95,
   safetySettings: [
-    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
-    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
-    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
-    { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" },
+    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
   ],
 };
 
